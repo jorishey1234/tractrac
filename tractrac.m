@@ -81,8 +81,8 @@ guidata(hObject, handles);
 
 % screen welcom screen
 if exist('tractrac.png')
-I=imread('tractrac.png');
-imshow(I,'Parent',handles.axes1);
+	I=imread('tractrac.png');
+	imshow(I,'Parent',handles.axes1);
 end
 
 % set defaut filemenu path to current folder
