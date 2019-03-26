@@ -4,7 +4,7 @@ TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more t
 
 Citation :  <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman J. (2019) TracTrac: a fast multi-object tracking algorithm for motion estimation, Computers and Geosciences, in press. </a>
 
-# joris.heyman@univ-rennes1.fr 
+Contact: joris.heyman@univ-rennes1.fr 
 
 Matlab users, run gui with 
 > tractrac 
@@ -12,6 +12,6 @@ Matlab users, run gui with
 Python users, run test case with
 > python tractrac.py -p 1
 
-# User Guide 
+# User guide
 Details of parameters and commands are given in the publication <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman (2019) </a>.
 
