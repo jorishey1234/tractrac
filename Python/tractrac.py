@@ -402,7 +402,7 @@ def sub2ind(array_shape, rows, cols):
 def run(**kwargs):
 	global SAVE_PLOT,Cmin,Cmax,alpha,INFO,PAR,plot_folder
 	# Take arguments or Default values
-	filename=kwargs.get('f','./Sample_videos/videotest.avi')
+	filename=kwargs.get('f','./Sample_videos/videotest.avi')	# Default Sample Video
 	tfile=kwargs.get('tf','') # File with time stamp of video frames
 	mmfilename=kwargs.get('mmf','')
 	PLOT=kwargs.get('p',0)
@@ -415,21 +415,8 @@ def run(**kwargs):
 	PAR=kwargs.get('par',1)
 	Pts,th=tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT)
 	return Pts,th
-#
-#filename='./Sample_videos/videotest.avi'
-#filename='/data/Experiences/souzy/run1.avi'
-#tfile=''
-#mmfilename=''
-#PLOT=True
-#OUTPUT=False
-#INFO=True
-#SAVE_PLOT=False
-#Cmin,Cmax=0.,5.
-#alpha=1.
-#th=[{}]
-#PAR=1
-#th[0]['motion']=1
-#%%
+
+# Main tracking FUNCTION
 def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	global SAVE_PLOT,Cmin,Cmax,alpha,INFO,PAR,version,plot_folder
 
@@ -453,21 +440,21 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	# Read Video Stream or image sequence
 	flag_im=is_image(filename)
 	flag_web=0 # flag if videosource is webcam
-	if flag_im:
+	if flag_im: # Image list
 		flist=sorted(glob.glob(filename))
 		#pdb.set_trace()
 		I0=cv2.imread(flist[0],2)
 		nFrames=len(flist)
 		width=I0.shape[1]
 		height=I0.shape[0]
-	elif filename=='0':
+	elif filename=='0': # WebCam
 		flag_web=1
 		cv2.destroyAllWindows()
 		cap = cv2.VideoCapture(0)
 		nFrames=10000
 		width=int(cap.get(3))
 		height=int(cap.get(4))
-	else:
+	else:	# Video
 		cv2.destroyAllWindows()
 		cap = cv2.VideoCapture(filename)
 		if imutils.is_cv2():
