@@ -21,10 +21,13 @@ Matlab users, run gui with
 
 Python users, run test cases with
 > python tractrac.py -p 1
+
 or
 > python tractrac.py -f '../Sample_videos/videotest.avi' -p 1
+
 or
 > python tractrac.py -f '../Sample_videos/PIVChallenge/*.tif' -p 2
+
 or
 > python tractrac.py -f '../Sample_videos/RiverDrone/*.tif' -p 2
 
