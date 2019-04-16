@@ -49,6 +49,7 @@
 # # >> python tractrac.py -f '../Sample_videos/videotest.avi' -p 1
 # # Other image sequence 
 # # >> python tractrac.py -f '../Sample_videos/PIVChallenge/*.tif' -p 2
+# # >> python tractrac.py -f '../Sample_videos/RiverDrone/*.tif' -p 2
 # # Type 
 #==============================================================================
 #=============================================
@@ -565,33 +566,8 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 #%%
 
 	Pts=[]
-	
-	# Initialize Plot
-	if PLOT>0:
-		init_plot(width,height)
-		if PAR:
-			queue = mp.Queue()
-			p = mp.Process(target=visualization_worker, args=(queue,))
-			p.start()
-	
-	#Initialize Background
-	B=np.zeros((height,width),dtype=np.float32)
-	if (th[0]['BG']==1)&(flag_web==0):
-			nbgstart=np.minimum(100,nFrames)
-			print 'Initiating Background image over the firsts {:d} frames...'.format(nbgstart)
-			for i in range(nbgstart):
-				I = cv2.imread(flist[i],2) if flag_im else cap.read()[1];
-				I=imProc(I,th)
-				B=B+I*mask/nbgstart
-		# Rewind video
-			if (imutils.is_cv2()) & (not flag_im):
-				cap.set(cv2.cv.CAP_PROP_POS_FRAMES,0);
-				cap.read()
-				cap.read()
-			elif (imutils.is_cv3()) & (not flag_im):
-				cap.set(cv2.CAP_PROP_POS_FRAMES,0);
-				cap.read()
-				cap.read()
+
+		
 
 
 	# Read 2 first frames and initialize
@@ -605,7 +581,6 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		time0=time1
 	I1f=imProc(I1,th)
 
-
 	# Read Mask file if any
 	mask_file=path+'/' + name[:-4]+'_mask.tif'
 	if os.path.isfile(mask_file):
@@ -614,11 +589,38 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	else:
 		mask=np.ones(I1f.shape,dtype='float32')
 
-
+	print mask_file,mask.shape
 	w=np.shape(I0f)[1]
 	h=np.shape(I0f)[0]
 
-
+	#Initialize Background
+	B=np.zeros((h,w),dtype=np.float32)
+	if (th[0]['BG']==1)&(flag_web==0):
+			nbgstart=np.minimum(100,nFrames)
+			print 'Initiating Background image over the firsts {:d} frames...'.format(nbgstart)
+			for i in range(nbgstart):
+				I = cv2.imread(flist[i],2) if flag_im else cap.read()[1];
+				I=imProc(I,th)
+				B=B+I/nbgstart
+		
+		# Rewind video
+			if (imutils.is_cv2()) & (not flag_im):
+				cap.set(cv2.cv.CAP_PROP_POS_FRAMES,0);
+				cap.read()
+				cap.read()
+			elif (imutils.is_cv3()) & (not flag_im):
+				cap.set(cv2.CAP_PROP_POS_FRAMES,0);
+				cap.read()
+				cap.read()
+					
+	# Initialize Plot
+	if PLOT>0:
+		init_plot(w,h)
+		if PAR:
+			queue = mp.Queue()
+			p = mp.Process(target=visualization_worker, args=(queue,))
+			p.start()
+	
 	 # Initialize Foreground
 	F0=I0f*mask-B
 	F1=I1f*mask-B
