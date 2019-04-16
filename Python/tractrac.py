@@ -41,14 +41,14 @@
 
 #==============================================================================
 # # Example runs
-# # Sample video
+# # Default video
 # # >> python tractrac.py -p 1
 # # WebCam
 # # >> python tractrac.py -f '0' -p 1 -cmax=50
 # # Other video file
-# # >> python tractrac.py -f 'video.avi' -p 1
+# # >> python tractrac.py -f '../Sample_videos/videotest.avi' -p 1
 # # Other image sequence 
-# # >> python tractrac.py -f 'image_%04d.jpg' -p 1
+# # >> python tractrac.py -f '../Sample_videos/PIVChallenge/*.tif' -p 2
 # # Type 
 #==============================================================================
 #=============================================
@@ -453,7 +453,7 @@ def sub2ind(array_shape, rows, cols):
 def run(**kwargs):
 	global SAVE_PLOT,Cmin,Cmax,alpha,INFO,PAR,plot_folder
 	# Take arguments or Default values
-	filename=kwargs.get('f','./Sample_videos/videotest.avi')	# Default Sample Video
+	filename=kwargs.get('f','../Sample_videos/videotest.avi')	# Default Sample Video
 	tfile=kwargs.get('tf','') # File with time stamp of video frames
 	mmfilename=kwargs.get('mmf','')
 	PLOT=kwargs.get('p',0)
@@ -967,7 +967,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 if __name__ == "__main__":
 	global SAVE_PLOT,Cmin,Cmax,alpha,INFO,PAR
 	parser = argparse.ArgumentParser(description='TRACTRAC v'+version+' - Joris Heyman')
-	parser.add_argument('-f','--file', type=str, help='Video Filename to track',default='./Sample_videos/videotest.avi')
+	parser.add_argument('-f','--file', type=str, help='Video Filename to track',default='../Sample_videos/videotest.avi')
 	parser.add_argument('-tf','--tfile', type=str, help='Time of frame file',default='')
 	parser.add_argument('-mmf','--motionmodelfile', type=str, help='Motion Model file',default='')
 	parser.add_argument('-o','--output', type=int, help='Save tracking results in a file ASCII (1) or HDF5 (2)',default=0)
