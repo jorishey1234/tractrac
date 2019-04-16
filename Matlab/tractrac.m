@@ -1,5 +1,5 @@
 function varargout = tractrac(varargin)
-version='2.1';
+version='xx';
 % TracTrac is GUI application for tracking a large number of objects in a movie. 
 % Version: 1.5, February 2017
 %
@@ -13,7 +13,7 @@ version='2.1';
 % How to use tractrac ?
 % a) Load a video filemenu by clicking in button 1. If the filemenu exists, it should appear in field 2 and 3 and the first frame in the visualization window. 
 % 
-% b) Change tracking parameters in the left panels. You can also provide a parameter filemenu with the same name as the video and the extension .txt. Parameters are (from top to bottom)
+% b) Change tracking parameters in the left panelcra. You can also provide a parameter filemenu with the same name as the video and the extension .txt. Parameters are (from top to bottom)
 % - ROI (ROIxmin,ROIxmax,ROIymin,ROIymax) : crop the video to the region of interest defined by top left (4 & 5) and bottom right corners (6 & 7).
 % - Nb. proc. (ncol,nlin,nbnd): Number of parallel windows for computing points distances.  8 is the number of columns, 9 of lines, and 10 the overlapping of windows.
 % - Background Model (BG,BG_speed): Use of a background subtraction method (static zones of the image). 11 gives the relative adaptation speed of the background (values less than 1).
@@ -43,7 +43,7 @@ version='2.1';
 % 
 % Enjoy and improve !
 
-% Last Modified by GUIDE v2.5 23-Jan-2019 13:37:31
+% Last Modified by GUIDE v2.5 06-Feb-2019 18:57:21
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -151,12 +151,6 @@ function th=read_parameters(hObject,eventdata,handles)
 th.vid_loop=str2double(get(handles.vid_loop,'String')); 
 
 % Image processing
-th.PlotOn=get(handles.PlotOn,'Value'); 
-th.PlotMotion=get(handles.PlotMotion,'Value'); 
-%th.PlotColor=get(handles.PlotOn,'Value'); 
-th.PlotPoints=get(handles.PlotPoints,'Value'); 
-%th.PlotVectors=get(handles.PlotVectors,'Value'); 
-th.PlotError=get(handles.PlotError,'Value'); 
 
 th.CMin=str2double(get(handles.CMin,'String'));
 th.CMax=str2double(get(handles.CMax,'String'));
@@ -272,16 +266,20 @@ I1=imProc(I1,th,ROI);
 Pts=[];
 pts_ind=1; % initialize index of trajectory
 
+% PreInitialize Matrix for Average savings
+U_average=zeros(size(I0));
+V_average=zeros(size(I0));
+N_average=zeros(size(I0));
+
 % Initialize Background
 B=zeros(size(I0));
 if th.BgOn,
     
     set(handles.Info,'String','... Initializing Background ... Please wait');
     drawnow
-    nbgstart=min(200,nFrames);
-    % start with an average of n frames
-    for i=1:nbgstart
-        
+    nbgstart=min(ceil(1/th.BGspeed),nFrames);
+    % start with an average of next n frames
+    for i=1:4:nbgstart
     set(handles.Info,'String',sprintf('... Initializing Background ... %02i',floor(i/nbgstart*100)));
     drawnow
         if isfield(data,'cam'), 
@@ -292,7 +290,7 @@ if th.BgOn,
         I=imread([path '/' vid1.flist(i).name]);
         end    
         I=imProc(I,th,ROI);
-        B=B+I/nbgstart;    
+        B=B+I/(nbgstart/4);    
     end
 end
 
@@ -371,12 +369,19 @@ set(handles.axes1,'Ylim',[0,size(I1,1)]);
 nscat_max=100;
  handles.h_scatter=gobjects(nscat_max,1);
  for i=1:nscat_max
-  handles.h_scatter(i)=scatter([],[],th.PlotScale,[],'filled','Parent',handles.axes1,'MarkerFaceAlpha',0.1,'MarkerEdgeColor','None');
+  handles.h_scatter(i)=scatter([],[],th.PlotScale,[],'filled','Parent',handles.axes1,'MarkerFaceAlpha',0.9,'MarkerEdgeColor','None');
  end
 nscat=min(nscat_max,max(1,ceil(str2double(get(handles.PlotTail,'String')))));
 
 % Initialize suiver object
 handles.h_quiver=quiver([],[],[],[],0,'r-','Parent',handles.axes1);
+
+% Text object 
+handles.h_text=text(w,h,['TracTrac v2.xx'],'Parent',handles.axes1,'color','w','fontsize',18,'fontweigh','bold','horizontalalignment','right',...
+   'verticalalignment','bottom');
+% Text object 
+handles.h_text_type=text(w/2,20,['--'],'Parent',handles.axes1,'color','w','fontsize',16,'fontangle','italic','horizontalalignment','center',...
+   'verticalalignment','top');
 
 % Histogram object
 [h,x]=hist(F1f(:),100);
@@ -433,7 +438,7 @@ if ~flag_web
 				dt_temp=[dt_temp(:)' -dt(end:-1:1)']; % Vector of consecutive times
             else
 				N=[N(:)' 2:nFrames]; % Vector of consecutive frames to read
-				dt_temp=[dt_tem(:)' dt(2:end)']; % Vector of consecutive times
+				dt_temp=[dt_tem(:)' dt(1:end)']; % Vector of consecutive times
             end
         end
 
@@ -459,7 +464,7 @@ I2=snapshot(data.cam);
 elseif data.isvid
 I2=read(vid1,N(n));
 else
-I2=imread([path '/' vid1.flist(n).name]);
+I2=imread([path '/' vid1.flist(N(n)).name]);
 end
 
 Iraw=I2;
@@ -553,7 +558,7 @@ while it<th.motion_it+1,
 		    idbad=[];
 		end
 	end
-	infos=sprintf('     | Motion Model it %02i - %i pts - Err. Av/Max %1.3f/%1.3f px ',it,length(idgood),10.^(mean(errU)),10.^(mean(errU+errU_th)));
+	infos=sprintf('     | Motion Model it %02i - %i pts - Err. %1.3f±%1.3f px ',it,length(idgood),10.^(mean(errU)),std(10.^(errU)));
 	disp(infos)
 	it=it+1;
 end
@@ -580,12 +585,21 @@ if (n==length(N)-nFrames) & ~(flag_web)
 	id_traj=sum(i_all);
 end
 
-% Save Frame Position Speed Acceleration 
-%if pts_ind+length(idgood)-1<maxmem
-if (n>=length(N)-nFrames+2)
+% Save Frame Position Speed Acceleration if last loop and if SaveTrajOn
+if get(handles.SaveTrajOn,'Value')&(n>=length(N)-nFrames+2)
 	Pts(pts_ind:pts_ind+length(idgood)-1,:)=[zeros(length(idgood),1)+n-1 ID(idgood) X1(idgood,:) um(idgood,:) A(idgood,:) Umotion(idgood,:) errU_filt(idgood)];
 	pts_ind=pts_ind+length(idgood);
 end
+
+% Only save the Mean velocities on the pixel grid
+%if get(handles.SaveAverageOn,'Value'),
+if (n>=length(N)-nFrames+2),
+    id_x=sub2ind(size(I0),round(X1(idgood,2)),round(X1(idgood,1)));
+    U_average(id_x)=U_average(id_x)+um(idgood,1);
+    V_average(id_x)=V_average(id_x)+um(idgood,2);
+    N_average(id_x)=N_average(id_x)+1;
+end
+%end
 % else % break
 %     set(handles.Info,'String',sprintf('Max memory limit reached ! Preventive stop...'));
 %     data.StopOn=1;
@@ -594,18 +608,23 @@ end
 
 
 % Vizualization
-PlotImageType=get(handles.PlotImageType,'Value');
-if get(handles.PlotOn,'Value')
-switch PlotImageType
-    case 1
-    set(handles.h_image,'CData',I2);
+if (get(handles.PlotImageType,'Value')>1)||get(handles.PlotColorType,'Value')>1,
+switch get(handles.PlotImageType,'Value')
     case 2
-    set(handles.h_image,'CData',imadjust(F));
+    set(handles.h_image,'CData',I2);
     case 3
-    set(handles.h_image,'CData',imadjust(Ff));
+    set(handles.h_image,'CData',imadjust(F));
     case 4
-    set(handles.h_image,'CData',imadjust(B));
+    set(handles.h_image,'CData',imadjust(Ff));
     case 5
+    set(handles.h_image,'CData',B);
+    case 6
+    Umag=sqrt(U_average.^2+V_average.^2)./N_average;
+    Umag_norm=max(0,min(0.7,(Umag-th.CMin)/(th.CMax-th.CMin)));
+    Umag_norm(isnan(Umag))=nan;
+    Icolor=hsv2rgb(cat(3,0.7-Umag_norm,I2/2+0.25,ones(size(Umag))));
+    set(handles.h_image,'CData',Icolor);
+    case 1
      set(handles.h_image,'CData',zeros(size(Ff)));
 end
 
@@ -623,35 +642,53 @@ end
 nscat=nscat_temp;
 
 color_points=[];
+set(handles.h_text_type,'string',sprintf('%i - %i objects',n,length(idgood)))
 if ~isempty(idgood),
-    if th.PlotPoints 
-    Umag=(sqrt(um(idgood,1).^2+um(idgood,2).^2));
-    Umag_norm=max(0,min(0.7,(Umag-th.CMin)/(th.CMax-th.CMin)));
-    color_points=hsv2rgb([0.7-Umag_norm ones(size(Umag)) ones(size(Umag))]);
-    end
-    Emag=max(0,min(0.7,(10.^(errU_filt)-th.CMin)/(th.CMax-th.CMin)));
-    if th.PlotError&th.motion&size(Emag,2)<=1,
-        Emag=max(0,min(0.7,(10.^(errU(idgood))-th.CMin)/(th.CMax-th.CMin)));
-        color_points=hsv2rgb([0.7-Emag ones(size(Emag)) ones(size(Emag))]);
-    end
-    if get(handles.PlotID,'Value')&~isempty(idgood),
-        IDg=mod(ID(idgood),1000)/1000;
-        color_points=hsv2rgb([IDg ones(size(IDg)) ones(size(IDg))]);
+    switch get(handles.PlotColorType,'Value')
+        case 2
+            set(handles.h_text_type,'string',sprintf('%i - %i objects - Velocity magnitude (%i-%i px/frame)',n,length(idgood),th.CMin,th.CMax))
+            Umag=(sqrt(um(idgood,1).^2+um(idgood,2).^2));
+            Umag_norm=max(0,min(0.7,(Umag-th.CMin)/(th.CMax-th.CMin)));
+            color_points=hsv2rgb([0.7-Umag_norm ones(size(Umag)) ones(size(Umag))]);
+        case 3
+            set(handles.h_text_type,'string',sprintf('%i - %i objects - Horizontal Velocity (%i-%i px/frame)',n,length(idgood),th.CMin,th.CMax))
+            Umag=um(idgood,1);
+            Umag_norm=max(0,min(0.7,(Umag-th.CMin)/(th.CMax-th.CMin)));
+            color_points=hsv2rgb([0.7-Umag_norm ones(size(Umag)) ones(size(Umag))]);
+        case 4
+            set(handles.h_text_type,'string',sprintf('%i - %i objects - Vertical Velocity (%i-%i px/frame)',n,length(idgood),th.CMin,th.CMax))
+            Umag=um(idgood,2);
+            Umag_norm=max(0,min(0.7,(Umag-th.CMin)/(th.CMax-th.CMin)));
+            color_points=hsv2rgb([0.7-Umag_norm ones(size(Umag)) ones(size(Umag))]);
+        case 5
+            set(handles.h_text_type,'string',sprintf('%i - %i objects - Acceleration Magnitude (%i-%i px/frame^2)',n,length(idgood),th.CMin,th.CMax))
+            Umag=(sqrt(A(idgood,1).^2+A(idgood,2).^2));;
+            Umag_norm=max(0,min(0.7,(Umag-th.CMin)/(th.CMax-th.CMin)));
+            color_points=hsv2rgb([0.7-Umag_norm ones(size(Umag)) ones(size(Umag))]);
+        case 7
+            Emag=max(0,min(0.7,(10.^(errU_filt)-th.CMin)/(th.CMax-th.CMin)));
+            if th.motion&size(Emag,2)<=1,
+                set(handles.h_text_type,'string',sprintf('%i - %i objects - Prediction Error (%i-%i px/frame)',n,length(idgood),th.CMin,th.CMax))
+                Emag=max(0,min(0.7,(10.^(errU(idgood))-th.CMin)/(th.CMax-th.CMin)));
+                color_points=hsv2rgb([0.7-Emag ones(size(Emag)) ones(size(Emag))]);
+            end
+        case 8
+            set(handles.h_text_type,'string',sprintf('%i - %i objects - Object IDs',n,length(idgood)))
+            IDg=mod(ID(idgood),1000)/1000;
+            color_points=hsv2rgb([IDg ones(size(IDg)) ones(size(IDg))]);
     end
 end
 
 if length(color_points)>0,
-    set(handles.h_scatter(mod(n,nscat)+1),'XData',X2(idgood,1),'YData',X2(idgood,2),'ZData',zeros(size(X2(idgood,2))),'CData',color_points,'MarkerFaceAlpha',0.8);
+    set(handles.h_scatter(mod(n,nscat)+1),'XData',X2(idgood,1),'YData',X2(idgood,2),'ZData',zeros(size(X2(idgood,2))),'CData',color_points,'MarkerFaceAlpha',0.3);
     set(handles.h_scatter(mod(n-1,nscat)+1),'MarkerFaceAlpha',0.2);
     set(handles.h_scatter(mod(n+1,nscat)+1),'MarkerFaceAlpha',0.1);
-%    uistack(handles.h_scatter(mod(n,nscat)+1),'up',1)
-%    uistack(handles.h_scatter(mod(n-1,nscat)+1),'down',1)
 else
     set(handles.h_scatter(mod(n,nscat)+1),'XData',[],'YData',[],'ZData',[],'CData',[]);
 end
 
 %Remove quiver model if not motion model
-if th.PlotMotion&~isempty(idgood)
+if get(handles.PlotColorType,'Value')==6,
 set(handles.h_quiver,'XData',C1(:,1),'YData',C1(:,2),'UData',(Umotion(:,1))*th.PlotScale,'VData',(Umotion(:,2))*th.PlotScale);    
 else
 delete(handles.h_quiver);
@@ -675,11 +712,19 @@ end
 if get(handles.RecOn,'Value'), % Reccord
 % Get defaut path
 filename=data.fname;
+path=data.path;
 [pathstr,name,ext] = fileparts(filename);
-path_img=[pathstr '/' name '_img/'];
+path_img=[path '/' filename '_img/'];
 if exist(path_img)==0,
-    mkdir(path_img)
+    mkdir(path_img);
 end
+% 
+% hfig = figure(2);
+% hax_new = copyobj(handles.axes1, hfig);
+% set(hax_new, 'Position', get(0, 'DefaultAxesPosition'));
+% print(hfig,[path_img 'img_' num2str(N(n),'%05i') '.jpg'],'-djpeg','-r0');
+
+%export_fig(handles.axes1,[path_img 'img_' num2str(N(n),'%05i') '.jpg']);
 % Print frame
 print(gcf,[path_img 'img_' num2str(N(n),'%05i') '.jpg'],'-djpeg','-r0');
 end
@@ -688,6 +733,7 @@ end
 
 drawnow;
 pause(0.001);
+
 
 % Update Background
 if th.BgOn
@@ -730,6 +776,11 @@ set(handles.Info,'String','... Finalizing Run ... Please wait');
 drawnow
 
 disp(sprintf('%04i | Buffer Frame.',N(n-1)))
+
+data.U_average=U_average;
+data.V_average=V_average;
+data.N_average=N_average;
+
 if ~isempty(Pts)
 % Remove extra lines (if any)
 Pts=Pts(1:pts_ind-1,:);
@@ -740,17 +791,19 @@ Pts(:,4)=Pts(:,4)+ROI(1,2)-1;
 
 % save data
 
-infos_all=[sprintf('> Tracking Stopped. Please save results! \n') infos_all];
+infos_all=[sprintf('> Tracking Stopped. Save Trajectory data if wanted! \n') infos_all];
 set(handles.Info,'String',infos_all);
 
 data.infos_all=infos_all;
 data.Pts=Pts;
 data.Frames=n;
-guidata(hObject,data);
+
 else
 infos_all=[sprintf('> Finished. No trajectories found ! \n') infos_all];
 set(handles.Info,'String',infos_all);
 end
+
+guidata(hObject,data);
 
 function Ff=blob_detection(F,th)
 scale=th.KerSize;
@@ -858,6 +911,25 @@ else
  set(handles.Info,'String',sprintf('No data to save !'));
  end
     
+
+% --------------------------------------------------------------------
+function Save_Averages_Callback(hObject, eventdata, handles)
+% hObject    handle to Save_Averages (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+data=guidata(hObject);
+if isfield(data,'U_average'),
+ filename=data.fname;
+ dlmwrite([data.path '/' data.fname '_U.txt'],data.U_average./data.N_average,'precision','%1.4e');
+ dlmwrite([data.path '/' data.fname '_V.txt'],data.V_average./data.N_average,'precision','%1.4e');
+ dlmwrite([data.path '/' data.fname '_N.txt'],data.N_average,'precision','%1.4e');
+ data.infos_all=[sprintf('> Average data saved \n') data.infos_all];
+ set(handles.Info,'String',data.infos_all);
+ disp(sprintf('> Average data saved .'))
+else
+ set(handles.Info,'String',sprintf('No data to save !'));
+ end
+
 
 % --- Executes on button press in PlotOn.
 function PlotOn_Callback(hObject, eventdata, handles)
@@ -1460,7 +1532,7 @@ if sum(strcmpi(ext,{'.avi','.mj2','.mp4'}))>0
     set(handles.PlotMenu,'Enable','On');
     end
 elseif sum(strcmpi(ext,{'.tiff','.tif','.png','.jpg','.jpeg'}))>0
-    data.isvid=0; data.fname=[ext(2:end) '_seq']; guidata(hObject,data);
+    data.isvid=0; data.fname=['*']; guidata(hObject,data); % to be coherent with Python
     load_img(hObject, eventdata, handles);
     set(handles.TrackMenu,'Enable','On');
     set(handles.Start,'Enable','On');
@@ -3451,3 +3523,45 @@ function PlotTail_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- Executes on button press in SaveTrajOn.
+function SaveTrajOn_Callback(hObject, eventdata, handles)
+% hObject    handle to SaveTrajOn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of SaveTrajOn
+
+
+% --- Executes on button press in checkbox2.
+function checkbox2_Callback(hObject, eventdata, handles)
+% hObject    handle to checkbox2 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of checkbox2
+
+
+% --- Executes on selection change in PlotColorType.
+function PlotColorType_Callback(hObject, eventdata, handles)
+% hObject    handle to PlotColorType (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns PlotColorType contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from PlotColorType
+
+
+% --- Executes during object creation, after setting all properties.
+function PlotColorType_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to PlotColorType (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
