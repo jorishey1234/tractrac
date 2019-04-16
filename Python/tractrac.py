@@ -1,8 +1,59 @@
 #%%
-################ TRACTRAC ############
 #==============================================================================
+# TRACTRAC -Masive Object Tracking Software
+#==============================================================================
+
+#==============================================================================
+ #usage: tractrac.py [-h] [-f FILE] [-tf TFILE] [-mmf MOTIONMODELFILE]
+ #                   [-o OUTPUT] [-opp] [-s] [-p PLOT] [-sp] [-cmin CMIN]
+ #                   [-cmax CMAX] [-ca CALPHA] [-par PARALLEL]
+ #
+ #TRACTRAC v2.01 (16/04/2019) - Joris Heyman
+ #
+ #optional arguments:
+ #  -h, --help            show this help message and exit
+ #  -f FILE, --file FILE  Video Filename to track
+ #  -tf TFILE, --tfile TFILE
+ #                        Time of frame file
+ #  -mmf MOTIONMODELFILE, --motionmodelfile MOTIONMODELFILE
+ #                        Motion Model file
+ #  -o OUTPUT, --output OUTPUT
+ #                        Save tracking results in a file ASCII (1) or HDF5 (2)
+ #  -opp, --outputpp      Save Post Processing results in a file
+ #  -s, --silent          No tracking infos
+ #  -p PLOT, --plot PLOT  Live plot of tracking results
+ #  -sp, --saveplot       Save plots in image sequence
+ #  -cmin CMIN, --cmin CMIN
+ #                        Minimum velocity (px/frame) for plotting
+ #  -cmax CMAX, --cmax CMAX
+ #                        Maximum velocity (px/frame) for plotting
+ #  -ca CALPHA, --calpha CALPHA
+ #                        Alpha value for arrows
+ #  -par PARALLEL, --parallel PARALLEL
+ #                        Visualization in a Parallel Thread
+#==============================================================================
+
+#==============================================================================
+# # Get Help :
+# # >> python tractrac.py --help
+#==============================================================================
+
+
+#==============================================================================
+# # Example runs
+# # Sample video
+# # >> python tractrac.py -p 1
+# # WebCam
+# # >> python tractrac.py -f '0' -p 1 -cmax=50
+# # Other video file
+# # >> python tractrac.py -f 'video.avi' -p 1
+# # Other image sequence 
+# # >> python tractrac.py -f 'image_%04d.jpg' -p 1
+# # Type 
+#==============================================================================
+#=============================================
 global version
-version= '2.01 (??/??/??)'
+version= '2.01 (16/04/2019)'
 #==============================================================================
 #v2.0 __________________________________
 # Fast Nearest Neighboor Search Integration (via scipy.spatial.DTree). No more paralelization windows are needed.
