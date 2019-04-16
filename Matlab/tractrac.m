@@ -1,50 +1,9 @@
-function varargout = tractrac(varargin)
-version='xx';
-% TracTrac is GUI application for tracking a large number of objects in a movie. 
-% Version: 1.5, February 2017
-%
-% TracTrac was initially designed for fluids, but can be used with grains, stars, birds....
-% Tested on Matlab 2012b and followings 
-% Author: Joris Heyman, hey.joris@gmail.com
-% 
-% How to run tractrac ? 
+% Run GUI with 
 % >> tractrac
-% 
-% How to use tractrac ?
-% a) Load a video filemenu by clicking in button 1. If the filemenu exists, it should appear in field 2 and 3 and the first frame in the visualization window. 
-% 
-% b) Change tracking parameters in the left panelcra. You can also provide a parameter filemenu with the same name as the video and the extension .txt. Parameters are (from top to bottom)
-% - ROI (ROIxmin,ROIxmax,ROIymin,ROIymax) : crop the video to the region of interest defined by top left (4 & 5) and bottom right corners (6 & 7).
-% - Nb. proc. (ncol,nlin,nbnd): Number of parallel windows for computing points distances.  8 is the number of columns, 9 of lines, and 10 the overlapping of windows.
-% - Background Model (BG,BG_speed): Use of a background subtraction method (static zones of the image). 11 gives the relative adaptation speed of the background (values less than 1).
-% - Noise Filtering (noise,noise_size): Median filter to remove noise, the size of the filter is given in 12
-% - Minima: to be checked if we do not look for bright points but dark
-% - Convolution (peak_conv,peak_conv_size): Select the convolution kernel to detect peak. Kernel  size is given in 13
-% - Peak Neighbors (peak_neigh): Number of neighboor pixels to consider to detect peak given in 14. Values are 3, 5 or 7.
-% - Intensity threshold (peak_th): only select peak that are brighter than this value (15).
-% - Sub-pixel method (peak_subpix): 16 defines the fitting method to find the peak's position at a sub-ixel resolution. Default is gaussian.- Motion Model (motion,motion_av): Use of a motion model to predict peak motions. A simple constant velocity model is used.  17 gives the extent (in pixels) of the spatial averaging performed on predicted velocity vectors. ! Averaging do not cross processing windows !-Filtering Outliers (filter,filter_time,filter_std) : Filtering of bad velocity vectors according to the typical error between predicted velocity and computed velocity. 18 changes the typical adaptation time of error thresholds (default 1) and 19 the number of standard deviations above which to reject a vector.
-% 
-% c) Select the desired visualization among the possible choices (20). Note that color vectors might take longer to be plotted.
-% 
-% d) Press button Start (21). While the computation is done, you can adjust if necessary the tracking parameters to improve the result. Some live indications about the computations are given in field 3.
-% 
-% e) Wait for the end of the video or press Stop (22) whenever wanted. Save the computation by pressing button 23. 
-% 
-% f) You are now able to post-process the data. First, provide parameters of the borrom right panel:
-% - fps (fps): 24 gives the number of frame per second the video was taken.
-% - res (res): 25 gives the pixel resolution (in meter per pixel) .
-% - Binning (binX,binY): reshape the data on a mesh with grid spaced horizontally by X (26) and vertically by Y (27), in pixels.
-% - rot (rot): 28 allows you to rotate the data with a given angle (in degree), the positive direction being counterclockwise.
-% Once the parameters are definde, press Post-Processing button (29) and wait for the process to complete. Finally Save then the data (30) for later use.
-% 
-% g) Choose a statistic to be plotted in menu 31 and press Plot button (32) to display the result. You can save the figure in png by simply pressing Print (33). You can now access a previous computation by loading first the video and go directly to step g).
-% 
-% h) If you want to treat several video files in a row, Press Process FileList (34) and load a text filemenu with the path of all videos, one per line. It is then recommanded to prepare parameter files for each video.
-% 
-% Enjoy and improve !
 
+function varargout = tractrac(varargin)
+version='2.0';
 % Last Modified by GUIDE v2.5 06-Feb-2019 18:57:21
-
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
@@ -438,7 +397,7 @@ if ~flag_web
 				dt_temp=[dt_temp(:)' -dt(end:-1:1)']; % Vector of consecutive times
             else
 				N=[N(:)' 2:nFrames]; % Vector of consecutive frames to read
-				dt_temp=[dt_tem(:)' dt(1:end)']; % Vector of consecutive times
+				dt_temp=[dt_temp(:)' dt(1:end)']; % Vector of consecutive times
             end
         end
 
