@@ -322,13 +322,13 @@ colormap(handles.axes1,gray)
 hold(handles.axes1,'on')
 handles.h_image=imshow(I1,'Parent',handles.axes1)
 set(handles.axes1,'Xlim',[0,size(I1,2)]);
-set(handles.axes1,'Ylim',[0,size(I1,1)]);
+set(handles.axes1,'Ylim',[0,size(I1,1)]);   
 
 % Initialize scatter object
 nscat_max=100;
  handles.h_scatter=gobjects(nscat_max,1);
  for i=1:nscat_max
-  handles.h_scatter(i)=scatter([],[],th.PlotScale,[],'filled','Parent',handles.axes1,'MarkerFaceAlpha',0.9,'MarkerEdgeColor','None');
+  handles.h_scatter(i)=scatter([nan],[nan],th.PlotScale,[nan],'filled','Parent',handles.axes1,'MarkerFaceAlpha',0.9,'MarkerEdgeColor','None');
  end
 nscat=min(nscat_max,max(1,ceil(str2double(get(handles.PlotTail,'String')))));
 
@@ -820,7 +820,10 @@ function SaveASCII_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 data=guidata(hObject);
 if isfield(data,'Pts'),
- filename=[data.path '/' data.fname '_track.txt'];
+ filename=[data.path '/TracTrac/' data.fname '_track.txt'];
+ if ~ exist([data.path '/TracTrac/'])
+     mkdir([data.path '/TracTrac/'])
+ end
  set(handles.Info,'String','... Saving ... Please wait');
  drawnow
  Frames=data.Frames;
@@ -853,7 +856,10 @@ function Save_Callback(hObject, eventdata, handles)
 data=guidata(hObject);
 if isfield(data,'Pts'),
  filename=data.fname;
- filename=[data.path '/' data.fname '_track'];
+ filename=[data.path '/TracTrac/' data.fname '_track'];
+ if ~ exist([data.path '/TracTrac/'])
+     mkdir([data.path '/TracTrac/'])
+ end
  set(handles.Info,'String','... Saving ... Please wait');
  drawnow
  Frames=data.Frames;
@@ -868,9 +874,24 @@ if isfield(data,'Pts'),
  set(handles.PostMenu,'Enable','On');
 else
  set(handles.Info,'String',sprintf('No data to save !'));
- end
+end
     
+function Write_Tiff_32(filename,timg)
+timg=single(timg);
+t = Tiff(filename, 'w');
+tagstruct.ImageLength = size(timg, 1);
+tagstruct.ImageWidth = size(timg, 2);
+tagstruct.Compression = Tiff.Compression.None;
+tagstruct.SampleFormat = Tiff.SampleFormat.IEEEFP;
+tagstruct.Photometric = Tiff.Photometric.MinIsBlack;
+tagstruct.BitsPerSample = 32;
+tagstruct.SamplesPerPixel =  1;
+tagstruct.PlanarConfiguration = Tiff.PlanarConfiguration.Chunky;
+t.setTag(tagstruct);
+t.write(timg);
+t.close();
 
+ 
 % --------------------------------------------------------------------
 function Save_Averages_Callback(hObject, eventdata, handles)
 % hObject    handle to Save_Averages (see GCBO)
@@ -879,10 +900,36 @@ function Save_Averages_Callback(hObject, eventdata, handles)
 data=guidata(hObject);
 if isfield(data,'U_average'),
  filename=data.fname;
- dlmwrite([data.path '/' data.fname '_U.txt'],data.U_average./data.N_average,'precision','%1.4e');
- dlmwrite([data.path '/' data.fname '_V.txt'],data.V_average./data.N_average,'precision','%1.4e');
- dlmwrite([data.path '/' data.fname '_N.txt'],data.N_average,'precision','%1.4e');
- data.infos_all=[sprintf('> Average data saved \n') data.infos_all];
+ if ~ exist([data.path '/TracTrac/'])
+     mkdir([data.path '/TracTrac/'])
+ end
+ 
+ Uim=data.U_average./data.N_average;
+ Uim(data.N_average==0)=nan;
+ Write_Tiff_32([data.path '/TracTrac/' data.fname '_Vx_[' num2str(nanmin(Uim(:)),'%1.5e') ',' num2str(nanmax(Uim(:)),'%1.5e') '].tif'],(Uim-nanmin(Uim(:)))/(max(Uim(:))-nanmin(Uim(:))))
+ 
+ Uim=data.V_average./data.N_average;
+ Uim(data.N_average==0)=nan;
+ Write_Tiff_32([data.path '/TracTrac/' data.fname '_Vy_[' num2str(nanmin(Uim(:)),'%1.5e') ',' num2str(nanmax(Uim(:)),'%1.5e') '].tif'],(Uim-nanmin(Uim(:)))/(max(Uim(:))-nanmin(Uim(:))))
+ 
+ Uim=sqrt(data.V_average.^2+data.U_average.^2)./data.N_average;
+ Uim(data.N_average==0)=nan;
+ Write_Tiff_32([data.path '/TracTrac/' data.fname '_Vmag_[' num2str(nanmin(Uim(:)),'%1.5e') ',' num2str(nanmax(Uim(:)),'%1.5e') '].tif'],(Uim-nanmin(Uim(:)))/(max(Uim(:))-nanmin(Uim(:))))
+   
+ Uim=data.N_average;
+ Uim(data.N_average==0)=nan;
+ Write_Tiff_32([data.path '/TracTrac/' data.fname '_N_[' num2str(nanmin(Uim(:)),'%1.5e') ',' num2str(nanmax(Uim(:)),'%1.5e') '].tif'],(Uim-nanmin(Uim(:)))/(max(Uim(:))-nanmin(Uim(:))))
+%  
+%  imwrite([data.path '/' data.fname '_V.tif'],uint16((Uim-min(Uim))/(max(Uim)-min(Uim))*(2^16-1))+1)
+%  imwrite([data.path '/' data.fname '_N.tif'],uint16((Uim-min(Uim))/(max(Uim)-min(Uim))*(2^16-1))+1)
+%  
+%  dlmwrite([data.path '/' data.fname '_U.txt'],data.U_average./data.N_average,'precision','%1.4e');
+%  
+%  imwrite()
+%  dlmwrite([data.path '/' data.fname '_U.txt'],data.U_average./data.N_average,'precision','%1.4e');
+%  dlmwrite([data.path '/' data.fname '_V.txt'],data.V_average./data.N_average,'precision','%1.4e');
+%  dlmwrite([data.path '/' data.fname '_N.txt'],data.N_average,'precision','%1.4e');
+ data.infos_all=[sprintf('> Average data saved as 32bit tiff \n') data.infos_all];
  set(handles.Info,'String',data.infos_all);
  disp(sprintf('> Average data saved .'))
 else
@@ -2169,9 +2216,12 @@ drawnow
  res=data.res;
  fps=data.fps;
  Frames=data.Frames;
- save([data.path '/' data.fname '_PostProc.mat'],'U','V','E','X','Y','dx','dy','res','fps','Frames','-v7.3');
+  if ~ exist([data.path '/TracTrac/'])
+     mkdir([data.path '/TracTrac/'])
+ end
+ save([data.path '/TracTrac/' data.fname '_PostProc.mat'],'U','V','E','X','Y','dx','dy','res','fps','Frames','-v7.3');
  
-data.infos_all=[sprintf('> Post-Proc saved to %s_PostProc.mat \n',data.fname) data.infos_all];
+data.infos_all=[sprintf('> Post-Proc saved to TracTrac/%s_PostProc.mat \n',data.fname) data.infos_all];
 set(handles.Info,'String',data.infos_all);
 
  disp(sprintf('PostProcessing saved to  %s_PostProc.mat',filename))
@@ -2193,9 +2243,8 @@ function PostPlot_Callback(hObject, eventdata, handles, PostPlotType)
 % handles    structure with handles and user data (see GUIDATA)
 
 data=guidata(hObject);
-filenamePost=[data.path '/' data.fname '_PostProc.mat'];
+filenamePost=[data.path '/TracTrac/' data.fname '_PostProc.mat'];
 if exist(filenamePost)
-
  set(handles.Info,'String','... Plotting ... Please wait');
 drawnow
 load(filenamePost);
