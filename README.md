@@ -19,10 +19,13 @@ Contact: joris.heyman@univ-rennes1.fr
 Matlab users, run gui with 
 > tractrac 
 
-Python users, run test cases with
-> python tractrac.py -p 1
+Python users, run test case, plot and save average velocities with
+> python tractrac.py -p 1 -a
 
-or
+Get help on available commands with :
+> python tractrac.py --help
+
+Other sample cases may be run as
 > python tractrac.py -f '../Sample_videos/videotest.avi' -p 1
 
 or
@@ -36,3 +39,10 @@ Run live-treatment by webcam acquisition by
 
 Details of parameters and commands are given in the publication <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman (2019) </a>.
 
+# Output formats
+
+A basic level of output is obtained with the average velocity maps saved as 32bit tiff image files (option -a in python). The images can then be post-treated with an image software such as Fiji/ImageJ.
+
+A second level of post-processing is available in the Matlab GUI, with specific plotting functions. 
+
+If these two levels are not sufficient, the raw trajectories can be saved in ASCII or binary files (hdf5) for further use.
