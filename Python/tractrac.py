@@ -2,36 +2,34 @@
 #==============================================================================
 # TRACTRAC -Masive Object Tracking Software
 #==============================================================================
-
-#==============================================================================
- #usage: tractrac.py [-h] [-f FILE] [-tf TFILE] [-mmf MOTIONMODELFILE]
- #                   [-o OUTPUT] [-opp] [-s] [-p PLOT] [-sp] [-cmin CMIN]
- #                   [-cmax CMAX] [-ca CALPHA] [-par PARALLEL]
- #
- #TRACTRAC v2.01 (16/04/2019) - Joris Heyman
- #
- #optional arguments:
- #  -h, --help            show this help message and exit
- #  -f FILE, --file FILE  Video Filename to track
- #  -tf TFILE, --tfile TFILE
- #                        Time of frame file
- #  -mmf MOTIONMODELFILE, --motionmodelfile MOTIONMODELFILE
- #                        Motion Model file
- #  -o OUTPUT, --output OUTPUT
- #                        Save tracking results in a file ASCII (1) or HDF5 (2)
- #  -opp, --outputpp      Save Post Processing results in a file
- #  -s, --silent          No tracking infos
- #  -p PLOT, --plot PLOT  Live plot of tracking results
- #  -sp, --saveplot       Save plots in image sequence
- #  -cmin CMIN, --cmin CMIN
- #                        Minimum velocity (px/frame) for plotting
- #  -cmax CMAX, --cmax CMAX
- #                        Maximum velocity (px/frame) for plotting
- #  -ca CALPHA, --calpha CALPHA
- #                        Alpha value for arrows
- #  -par PARALLEL, --parallel PARALLEL
- #                        Visualization in a Parallel Thread
-#==============================================================================
+#usage: tractrac.py [-h] [-f FILE] [-tf TFILE] [-mmf MOTIONMODELFILE] [-a]
+#                   [-o OUTPUT] [-opp] [-s] [-p PLOT] [-sp] [-cmin CMIN]
+#                   [-cmax CMAX] [-ca CALPHA] [-par PARALLEL]
+#
+#TRACTRAC v2.01 (16/04/2019) - Joris Heyman
+#
+#optional arguments:
+#  -h, --help            show this help message and exit
+#  -f FILE, --file FILE  Video Filename to track
+#  -tf TFILE, --tfile TFILE
+#                        Time of frame file
+#  -mmf MOTIONMODELFILE, --motionmodelfile MOTIONMODELFILE
+#                        Motion Model file
+#  -a, --averages        Save average velocity maps
+#  -o OUTPUT, --output OUTPUT
+#                        Save tracking results in a file ASCII (1) or HDF5 (2)
+#  -opp, --outputpp      Save Post Processing results in a file
+#  -s, --silent          No tracking infos
+#  -p PLOT, --plot PLOT  Live plot of tracking results
+#  -sp, --saveplot       Save plots in image sequence
+#  -cmin CMIN, --cmin CMIN
+#                        Minimum velocity (px/frame) for plotting
+#  -cmax CMAX, --cmax CMAX
+#                        Maximum velocity (px/frame) for plotting
+#  -ca CALPHA, --calpha CALPHA
+#                        Alpha value for arrows
+#  -par PARALLEL, --parallel PARALLEL
+#                        Visualization in a Parallel Thread
 
 #==============================================================================
 # # Get Help :
@@ -42,19 +40,20 @@
 #==============================================================================
 # # Example runs
 # # Default video
+# # >> python tractrac.py -a
 # # >> python tractrac.py -p 1
 # # WebCam
 # # >> python tractrac.py -f '0' -p 1 -cmax=50
 # # Other video file
 # # >> python tractrac.py -f '../Sample_videos/videotest.avi' -p 1
 # # Other image sequence 
-# # >> python tractrac.py -f '../Sample_videos/PIVChallenge/*.tif' -p 2
-# # >> python tractrac.py -f '../Sample_videos/RiverDrone/*.tif' -p 2
+# # >> python tractrac.py -f '../Sample_videos/PIVChallenge/*.tif' -a -p 2
+# # >> python tractrac.py -f '../Sample_videos/RiverDrone/*.tif' -a -o 1-p 2
 # # Type 
 #==============================================================================
 #=============================================
 global version
-version= '2.01 (16/04/2019)'
+version= '2.02 (20/04/2019)'
 #==============================================================================
 #v2.0 __________________________________
 # Fast Nearest Neighboor Search Integration (via scipy.spatial.DTree). No more paralelization windows are needed.
@@ -688,6 +687,12 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		MotionModelFile=True
 		if INFO:
 			print '! The Provided Motion Model File will be used !'
+# Initialize averages
+			
+	if AVERAGES:
+		Av_U=np.zeros(F0f.shape)
+		Av_V=np.zeros(F0f.shape)
+		Av_N=np.zeros(F0f.shape)
 
 #====================Top Down Approach=========================================
 	N=np.arange(nFrames)
@@ -849,11 +854,19 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			ID0[i_all]=np.arange(int(sum(i_all)))
 			id_traj=sum(i_all)
 			A=A+np.nan
+			
 		# Save Frame ID Position Speed Acceleration
 		if OUTPUT & (i>=len(N)-nFrames+2) :
 			newPts=np.vstack(((np.zeros(len(idgood))+N[i]-np.sign(dt[i-1])).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T,A[idgood,:].T, Umotion[idgood,:].T,errU[idgood].T)).T
 			Pts.append(newPts) # We use list for dynamic resizing of arrays
 
+		if AVERAGES & (i>=len(N)-nFrames+2) :
+			xi=np.uint16(X1[idgood,:])
+			Av_U[xi[:,1],xi[:,0]]=Av_U[xi[:,1],xi[:,0]]+um[idgood,0]
+			Av_V[xi[:,1],xi[:,0]]=Av_V[xi[:,1],xi[:,0]]+um[idgood,1]
+			Av_N[xi[:,1],xi[:,0]]=Av_N[xi[:,1],xi[:,0]]+1
+			
+			
 	# Plotting
 		if (PLOT>0):
 			if PAR==0:
@@ -918,21 +931,24 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	if OUTPUT==1:
 		# Transform Pts into a numpy array
 		Pts=np.concatenate(Pts)
-		output_filename=path+'/' + name[:-4]+'_track.txt'
+		if not os.path.isdir(path+'/TracTrac/'):
+			os.mkdir(path+'/TracTrac/')
+		output_filename=path+'/TracTrac/' + name[:-4]+'_track.txt'
 		if INFO:
 			print 'Saving to ASCII file '+ output_filename +'...'
 		head='TracTrac v'+version +' \n Parameters: '+str(th[0])+'\n Frame ID x y Vx Vy Ax Ay Vx(prediction) Vy(prediction) Error(prediction)'
 		#newPts=np.vstack(((np.zeros(len(idgood))+n-1).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T, Umotion[idgood,:].T,a[idgood,:].T,errU[idgood].T)).T
 		np.savetxt(output_filename,Pts,fmt=('%d','%d','%.3f','%.3f','%.5f','%.5f','%.4f','%.4f','%.4f','%.4f','%.3f'),delimiter=' ', newline='\n', header=head, comments='# ')
 		if INFO:
-			print 'Saved !'
-			print "="*(65)
+			print 'Raw tracking data saved as ASCII file!'
 
 	# SAVING HDF5 ####################
 	if OUTPUT==2:
 		# Transform Pts into a numpy array
-		Pts=np.concatenate(Pts)
-		output_filename=path+'/' + name[:-4]+'_track.hdf5'
+		Pts=np.concatenate(Pts)		
+		if not os.path.isdir(path+'/TracTrac/'):
+			os.mkdir(path+'/TracTrac/')
+		output_filename=path+'/TracTrac/' + name[:-4]+'_track.hdf5'
 		if INFO:
 			print 'Saving to binary file '+ output_filename +'...'
 		f = h5py.File(output_filename,'w')
@@ -951,9 +967,29 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		f.close()
 
 		if INFO:
-			print 'Saved !'
-			print "="*(65)
+			print 'Raw tracking data saved as HDF5 file!'
 
+	if AVERAGES:
+		if not os.path.isdir(path+'/TracTrac/'):
+			os.mkdir(path+'/TracTrac/')
+		Av_N[Av_N==0]=np.nan
+		Ui=Av_U/Av_N
+		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_Ux_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+														
+		Ui=Av_V/Av_N
+		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_Uy_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+														
+		Ui=np.sqrt(Av_U**2.+Av_V**2.)/Av_N
+		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_Umag_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+		Ui=Av_N
+		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_N_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+
+		if INFO:
+			print 'Averages saved as tiff files!'
 	#	if OUTPUT_PP:
 	#		#pdb.set_trace()
 	#		output_filename=path+'/' + name[:-4]+'_post.txt'
@@ -961,6 +997,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	#		post_save(output_filename,Pts,th)
 	#		print 'Saved !'
 	#		print "="*(65)
+	print "="*(65)
 	return Pts,th
 
 
@@ -972,6 +1009,7 @@ if __name__ == "__main__":
 	parser.add_argument('-f','--file', type=str, help='Video Filename to track',default='../Sample_videos/videotest.avi')
 	parser.add_argument('-tf','--tfile', type=str, help='Time of frame file',default='')
 	parser.add_argument('-mmf','--motionmodelfile', type=str, help='Motion Model file',default='')
+	parser.add_argument('-a','--averages', help='Save average velocity maps', action='store_true',default=False)
 	parser.add_argument('-o','--output', type=int, help='Save tracking results in a file ASCII (1) or HDF5 (2)',default=0)
 	parser.add_argument('-opp','--outputpp', help='Save Post Processing results in a file', action='store_true',default=False)
 	parser.add_argument('-s','--silent',help='No tracking infos', action='store_false',default=True)
@@ -988,6 +1026,7 @@ if __name__ == "__main__":
 	tfile=args.tfile
 	mmfilename=args.motionmodelfile
 	PLOT=args.plot
+	AVERAGES=args.averages
 	OUTPUT=args.output
 	OUTPUT_PP=args.outputpp
 	INFO=args.silent
