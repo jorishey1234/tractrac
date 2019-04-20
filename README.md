@@ -41,8 +41,8 @@ Details of parameters and commands are given in the publication <a href="https:/
 
 # Output formats
 
-A basic level of output is obtained with the average velocity maps saved as 32bit tiff image files (option -a in python). The images can then be post-treated with an image software such as Fiji/ImageJ.
+A basic level of output is obtained with the average velocity maps saved as 32bit tiff image files (option -a in python). The images can then be post-treated with an image software such as Fiji/ImageJ. Image filenames contain extremum field values "[min,max]" so that images can be scaled appropriately.
 
-A second level of post-processing is available in the Matlab GUI, with specific plotting functions. 
+A second level of post-processing is available in the Matlab GUI, with specific plotting functions on a defined grid. A post-processing binary matlab file is generated for further used. It contains cell arrays with trajectories mapped on the defined grid. 
 
-If these two levels are not sufficient, the raw trajectories can be saved in ASCII or binary files (hdf5) for further use.
+If these two levels are not sufficient, the raw trajectories can also be saved in ASCII or binary files (hdf5) for further use.
