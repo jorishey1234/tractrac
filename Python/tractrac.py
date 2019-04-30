@@ -463,7 +463,7 @@ def run(**kwargs):
 	Cmin,Cmax=kwargs.get('clim',(0.0,5.0))
 	alpha=kwargs.get('calpha',0.5)
 	th=kwargs.get('th',[{}])
-	PAR=kwargs.get('par',1)
+	PAR=kwargs.get('par',0)
 	Pts,th=tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT)
 	return Pts,th
 
