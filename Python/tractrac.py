@@ -288,7 +288,8 @@ def times_f(a,b):
 def blob_detection(F,th):
 # LoG or DoG detection kernel
 	scale=th[0]['peak_conv_size']
-	size=(np.uint8(np.maximum(3,(int(scale*3.)/2)*2+1)),np.uint8(np.maximum(3,(int(scale*3.)/2)*2+1)))
+	size=(int(np.maximum(3,(int(scale*3.)//2)*2+1)),int(np.maximum(3,(int(scale*3.)//2)*2+1)))
+#	print(size)
 	#print size
 	Ff=-F # No kernel
 	if th[0]['peak_conv']==1 : # DoG kernel
@@ -528,7 +529,10 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	path,name=os.path.split(filename)
 	if len(path)==0:
 		path='./'
-	parameter_filename=path+'/' + name[:-4]+'_par.txt'
+	if flag_im:
+		parameter_filename=path+'/' + name[-3:]+'seq_par.txt' # If list of image, default name different
+	else:
+		parameter_filename=path+'/' + name[:-4]+'_par.txt'
 
 	if not th[0]: th = read_parameter_file(parameter_filename)
 	# Set remaining Parameters and Save
