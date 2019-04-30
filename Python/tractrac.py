@@ -215,9 +215,9 @@ def read_parameter_file(filename):
 			for line in f:
 				s=search('{varname:w} {varvalue:g}',line)
 				if (s != None): par[0][str(s['varname'])]=s['varvalue']
-			print 'Parameter file read !'
+			print('Parameter file read !')
 	else:
-		print 'WARNING: no parameter file exists. Taking default values! '
+		print('WARNING: no parameter file exists. Taking default values! ')
 	return par
 
 def write_parameter_file(filename,th):
@@ -361,7 +361,7 @@ def maximaThresh(a,n,th):
 	method=th[0]['peak_subpix']
 	a=np.float64(a)
 	if a.max()<th[0]['peak_th']:
-		print 'Warning : peak_th ({:1.4f}) is above the maximum image convoluted value ({:1.4f}).'.format(th[0]['peak_th'],a.max())
+		print('Warning : peak_th ({:1.4f}) is above the maximum image convoluted value ({:1.4f}).'.format(th[0]['peak_th'],a.max()))
 	r=np.random.rand(np.shape(a)[0],np.shape(a)[1])*1e-5
 	mask=np.ones((n,n),np.uint8)
 	b=cv2.dilate(a+r,mask,iterations = 1)
@@ -481,12 +481,12 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	nchar=43
 	sep="="*nchar
 	if INFO:
-		print sep
-		print "|"+ ' TRACTRAC v'+version+' - Heyman J. '+ " |"
-		print sep
+		print(sep)
+		print("|"+ ' TRACTRAC v'+version+' - Heyman J. '+ " |")
+		print(sep)
 		print("> OpenCV Version: {}".format(cv2.__version__)) 	# Check OpenCV version
-		print '> file : '+filename
-		print sep
+		print('> file : '+filename)
+		print(sep)
 
 	# Read Video Stream or image sequence
 	flag_im=is_image(filename)
@@ -517,11 +517,11 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 			height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 		else:
-			print 'Bad OpenCV version. Please install opencv3'
+			print('Bad OpenCV version. Please install opencv3')
 			sys.exit()
 
 	if nFrames==0:
-		print 'No Frames to track. Check filename.'
+		print('No Frames to track. Check filename.')
 		sys.exit()
 
 	# Read Parameters or set to defaut values
@@ -546,13 +546,13 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 #	if OUTPUT: write_parameter_file(parameter_filename,th)
 
 	if INFO:
-		print th
-		print "="*(65)
+		print(th)
+		print("="*(65))
 
 	if SAVE_PLOT:
 		plot_folder=path+'/'+name[:-4]+'_img/'
 		if INFO:
-			print 'Images will be saved in '+plot_folder
+			print('Images will be saved in '+plot_folder)
 		if not(os.path.exists(plot_folder)): os.makedirs(plot_folder);
 
 	# Read time file to get time step
@@ -588,7 +588,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	else:
 		mask=np.ones(I1f.shape,dtype='float32')
 
-	print mask_file,mask.shape
+	#print(mask_file,mask.shape)
 	w=np.shape(I0f)[1]
 	h=np.shape(I0f)[0]
 
@@ -596,7 +596,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	B=np.zeros((h,w),dtype=np.float32)
 	if (th[0]['BG']==1)&(flag_web==0):
 			nbgstart=np.minimum(100,nFrames)
-			print 'Initiating Background image over the firsts {:d} frames...'.format(nbgstart)
+			print('Initiating Background image over the firsts {:d} frames...'.format(nbgstart))
 			for i in range(nbgstart):
 				I = cv2.imread(flist[i],2) if flag_im else cap.read()[1];
 				I=imProc(I,th)
@@ -686,7 +686,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			mm_E = griddata((mmdata[:,0],mmdata[:,1]), np.zeros(mmdata[:,1].shape), (mm_x, mm_y), method='nearest')
 		MotionModelFile=True
 		if INFO:
-			print '! The Provided Motion Model File will be used !'
+			print('! The Provided Motion Model File will be used !')
 # Initialize averages
 			
 	if AVERAGES:
@@ -709,7 +709,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 #==============================================================================
 	# MAIN LOOP OVER VIDEO FRAMES  #################################################
 	#nFrames=5
-	if INFO: print '0001 | Buffer frame...'
+	if INFO: print('0001 | Buffer frame...')
 	for i in range(2,len(N)):
 #	for i in range(2,399):
 		#print 'top'
@@ -726,14 +726,14 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 
 		if I2 is None:
 			if PAR and PLOT: p.join();
-			print 'WARNING: Video reader get None type. Exiting at frame {:d}.'.format(N[i])
+			print('WARNING: Video reader get None type. Exiting at frame {:d}.'.format(N[i]))
 			break
 
 		if flag_web:
 			time1=time.time()
 			dt[i-1]=time1-time0
 			time0=time1
-			print 'Webcam Framerate:',1/dt[i-1]
+			print('Webcam Framerate: {:1.1f} fps'.format(1./dt[i-1]))
 
 		I2f=imProc(I2,th)
 		F2 = I2f*mask-B
@@ -824,7 +824,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 				infos= '     | Motion Model it %02d - %d pts - log Err. Av/Max %1.1f/%1.1f (px) ' % (it,len(idgood),np.mean(errU),np.mean(errU+errU_th))
 			else:
 				infos= '     | Motion Model it %02d - %d pts - log Err. Av/Max ??/%1.1f (px) ' % (it,0,errU_th)
-			if INFO: print infos
+			if INFO: print(infos)
 #			if (PLOT==2) & (th[0]['motion_it']>0):
 #				col = np.sqrt(Umotion[idgood,1]**2+Umotion[idgood,0]**2); vel=Umotion[idgood,:];
 #				if PAR:
@@ -901,7 +901,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		elapsed = time.time() - t
 
 		infos= '%04d + %d Pts (%d%% recovered) - Time %1.2fs ' % (N[i],C1.shape[0],len(idgood)*100./np.maximum(0.1,C1.shape[0]),elapsed)+"="*20
-		if INFO: print infos
+		if INFO: print(infos)
 		# Prepare matrix for next iteration
 		# 1 -> 0
 		#A0=A1;
@@ -920,12 +920,12 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	#if INFO: print '%04d | Buffer frame...' % (N[i+1])
 	if PAR and PLOT:
 		if INFO:
-			print "="*(65)
-			print 'Waiting for visualization thread end...'
+			print("="*(65))
+			print('Waiting for visualization thread end...')
 		p.join()
 		p.terminate()
 		plt.close('all')
-	if INFO: print 'End ! A total of {:d} objects have been tracked.'.format(id_traj)
+	if INFO: print('End ! A total of {:d} objects have been tracked.'.format(id_traj))
 	#print OUTPUT
 	# SAVING ASCII ####################
 	if OUTPUT==1:
@@ -935,12 +935,12 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			os.mkdir(path+'/TracTrac/')
 		output_filename=path+'/TracTrac/' + name[:-4]+'_track.txt'
 		if INFO:
-			print 'Saving to ASCII file '+ output_filename +'...'
+			print('Saving to ASCII file '+ output_filename +'...')
 		head='TracTrac v'+version +' \n Parameters: '+str(th[0])+'\n Frame ID x y Vx Vy Ax Ay Vx(prediction) Vy(prediction) Error(prediction)'
 		#newPts=np.vstack(((np.zeros(len(idgood))+n-1).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T, Umotion[idgood,:].T,a[idgood,:].T,errU[idgood].T)).T
 		np.savetxt(output_filename,Pts,fmt=('%d','%d','%.3f','%.3f','%.5f','%.5f','%.4f','%.4f','%.4f','%.4f','%.3f'),delimiter=' ', newline='\n', header=head, comments='# ')
 		if INFO:
-			print 'Raw tracking data saved as ASCII file!'
+			print('Raw tracking data saved as ASCII file!')
 
 	# SAVING HDF5 ####################
 	if OUTPUT==2:
@@ -950,7 +950,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			os.mkdir(path+'/TracTrac/')
 		output_filename=path+'/TracTrac/' + name[:-4]+'_track.hdf5'
 		if INFO:
-			print 'Saving to binary file '+ output_filename +'...'
+			print('Saving to binary file '+ output_filename +'...')
 		f = h5py.File(output_filename,'w')
 		f.attrs['version']='HDF5 file made with TracTrac Python v'+version
 		f.attrs['date']=time.strftime("%d/%m/%Y")
@@ -967,7 +967,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		f.close()
 
 		if INFO:
-			print 'Raw tracking data saved as HDF5 file!'
+			print('Raw tracking data saved as HDF5 file!')
 
 	if AVERAGES:
 		if not os.path.isdir(path+'/TracTrac/'):
@@ -989,7 +989,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
 
 		if INFO:
-			print 'Averages saved as tiff files!'
+			print('Averages saved as tiff files!')
 	#	if OUTPUT_PP:
 	#		#pdb.set_trace()
 	#		output_filename=path+'/' + name[:-4]+'_post.txt'
@@ -997,7 +997,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	#		post_save(output_filename,Pts,th)
 	#		print 'Saved !'
 	#		print "="*(65)
-	print "="*(65)
+	print("="*(65))
 	return Pts,th
 
 
