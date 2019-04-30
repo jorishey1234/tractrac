@@ -445,7 +445,7 @@ A2=zeros(size(C2));
 
 it=0;
 while it<th.motion_it+1,
-	if th.motion&(n<nFrames)&(length(idgood)+size(Xmot,1)>1),
+	if th.motion&(n<=length(N))&(length(idgood)+size(Xmot,1)>1),
 	[Umotion,errU_filt,Xmot_temp,Umot_temp,errmot_temp]=Propagate_MotionModel_KdTree(C1,X1(idgood,:),um(idgood,:),errU(idgood),BND,Xmot,Umot,errmot,th);
 	else
 	Umotion=zeros(size(C1));
@@ -648,7 +648,8 @@ end
 
 %Remove quiver model if not motion model
 if get(handles.PlotColorType,'Value')==6,
-set(handles.h_quiver,'XData',C1(:,1),'YData',C1(:,2),'UData',(Umotion(:,1))*th.PlotScale,'VData',(Umotion(:,2))*th.PlotScale);    
+set(handles.h_quiver,'XData',C1(:,1),'YData',C1(:,2),'UData',(Umotion(:,1))*th.PlotScale,'VData',(Umotion(:,2))*th.PlotScale);
+%Umotion(:,1)
 else
 delete(handles.h_quiver);
 handles.h_quiver=quiver([],[],[],[],0,'r-','Parent',handles.axes1);
@@ -1538,7 +1539,7 @@ if sum(strcmpi(ext,{'.avi','.mj2','.mp4'}))>0
     set(handles.PlotMenu,'Enable','On');
     end
 elseif sum(strcmpi(ext,{'.tiff','.tif','.png','.jpg','.jpeg'}))>0
-    data.isvid=0; data.fname=['*']; guidata(hObject,data); % to be coherent with Python
+    data.isvid=0; data.fname=[ext(end-2:end) 'seq']; guidata(hObject,data); % to be coherent with Python
     load_img(hObject, eventdata, handles);
     set(handles.TrackMenu,'Enable','On');
     set(handles.Start,'Enable','On');
