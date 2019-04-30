@@ -66,7 +66,7 @@ version= '2.02 (20/04/2019)'
 # Integration of non-constant times step
 # Possibility to read an "interpolated" motion model image of U and V
 # Parameter file now called *_par.txt
-# Fixed some difference between Matlab and Python version, some diff remain notably in the error thresholds
+# Fixed some difference between Matlab and Python version, some diff remain notaob_detectiony in the error thresholds
 
 import time
 import glob
@@ -288,7 +288,7 @@ def times_f(a,b):
 def blob_detection(F,th):
 # LoG or DoG detection kernel
 	scale=th[0]['peak_conv_size']
-	size=(np.maximum(3,(int(scale*3.)/2)*2+1),np.maximum(3,(int(scale*3.)/2)*2+1))
+	size=(np.uint8(np.maximum(3,(int(scale*3.)/2)*2+1)),np.uint8(np.maximum(3,(int(scale*3.)/2)*2+1)))
 	#print size
 	Ff=-F # No kernel
 	if th[0]['peak_conv']==1 : # DoG kernel
