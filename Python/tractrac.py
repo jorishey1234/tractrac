@@ -512,7 +512,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			nFrames=int(cap.get(cv2.cv.CAP_PROP_FRAME_COUNT))
 			width=int(cap.get(cv2.cv.CAP_PROP_FRAME_WIDTH))
 			height=int(cap.get(cv2.cv.CAP_PROP_FRAME_HEIGHT))
-		elif imutils.is_cv3():
+		elif imutils.is_cv3() or imutils.is_cv4() :
 			nFrames=int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 			width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 			height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
