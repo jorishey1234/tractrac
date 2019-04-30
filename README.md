@@ -14,28 +14,36 @@ The article is available in <a href="https://perso.univ-rennes1.fr/joris.heyman/
 Contact: joris.heyman@univ-rennes1.fr 
 
 
-# User guide
+# User guide Matlab
+1) Installation 
+Download and extract the Git repository. Make sure you have Matlab version > 2012a with Image Analysis Toolbox installed.  
 
-Matlab users, run gui with 
+2) In the Matlab folder, run TracTrac Graphical User Interface with 
 > tractrac 
 
-Python users, run test case, plot and save average velocities with
+# User guide Matlab
+1) Installation
+Download and extract the Git repository. Make sure you have a working installation of python2.7 or python3.xx. Install the extra packages scipy, opencv-python, imutils, h5py, parse via the terminal :
+> pip install scipy opencv-python imutils h5py parse --user
+
+
+2) In the Python folder, run test case, plot and save average velocities with
 > python tractrac.py -p 1 -a
 
-Get help on available commands with :
+3) Get help on available commands with :
 > python tractrac.py --help
 
-Other sample cases may be run as
-> python tractrac.py -f '../Sample_videos/videotest.avi' -p 1
+4) Other sample cases may be run as
+> python tractrac.py -f "../Sample_videos/videotest.avi" -p 1
 
 or
-> python tractrac.py -f '../Sample_videos/PIVChallenge/*.tif' -p 2
+> python tractrac.py -f "../Sample_videos/PIVChallenge/*.tif" -p 2
 
 or
-> python tractrac.py -f '../Sample_videos/RiverDrone/*.tif' -p 2
+> python tractrac.py -f "../Sample_videos/RiverDrone/*.tif" -p 2
 
 Run live-treatment by webcam acquisition by
-> python tractrac.py -f '0' -p 1 -cmax 50
+> python tractrac.py -f "0" -p 1 -cmax 50
 
 Details of parameters and commands are given in the publication <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman (2019) </a>.
 
