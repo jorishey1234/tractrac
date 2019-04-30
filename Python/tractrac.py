@@ -1019,7 +1019,7 @@ if __name__ == "__main__":
 	parser.add_argument('-cmin','--cmin', type=float, help='Minimum velocity (px/frame) for plotting',default=0.)
 	parser.add_argument('-cmax','--cmax', type=float, help='Maximum velocity (px/frame) for plotting',default=3.)
 	parser.add_argument('-ca','--calpha', type=float, help='Alpha value for arrows',default=0.5)
-	parser.add_argument('-par','--parallel', type=int,help='Visualization in a Parallel Thread', default=1)
+	parser.add_argument('-par','--parallel', type=int,help='Visualization in a Parallel Thread', default=0)
 
 	args = parser.parse_args()
 	filename=args.file
