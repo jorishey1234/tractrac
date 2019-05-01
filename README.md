@@ -1,7 +1,7 @@
 # TracTrac PTV Software: a fast multi-object tracking algorithm for motion estimation
 
 TracTrac is an open-source Matlab/Python implementation of a robust and efficient object tracking algorithm capable of simultaneously tracking several thousands of objects in very short time. Originally developed as an alternative to particle image velocimetry algorithms for estimating fluid flow velocities, its versatility and robustness makes it relevant to many other dynamic sceneries encountered in geophysics such as granular flows and drone videography. In this article, the structure of the algorithm is detailed and its capacity to resolve strongly variable and intermittent object motions is tested against three examples of geophysical interest.
-TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7 with OpenCV2) or Matlab (>2012a with Image Processing toolbox). Give it a try !
+TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7 with OpenCV2) or Matlab (>2014a with Computer Vision toolbox). Give it a try !
 
 
 # Reference
@@ -16,12 +16,12 @@ Contact: joris.heyman@univ-rennes1.fr
 
 # User guide Matlab
 1) Installation 
-Download and extract the Git repository. Make sure you have Matlab version > 2012a with Image Analysis Toolbox installed.  
+Download and extract the Git repository. Make sure you have Matlab version >2014a with Computer Vision Toolbox installed.  
 
 2) In the Matlab folder, run TracTrac Graphical User Interface with 
 > tractrac 
 
-# User guide Matlab
+# User guide Python2 and Python3
 1) Installation
 Download and extract the Git repository. Make sure you have a working installation of python2.7 or python3.xx. Install the extra packages scipy, opencv-python, imutils, h5py, parse via the terminal :
 > pip install scipy opencv-python imutils h5py parse --user
