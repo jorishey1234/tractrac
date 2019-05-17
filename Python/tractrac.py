@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #%%
 #==============================================================================
 # TRACTRAC -Masive Object Tracking Software
@@ -266,7 +267,7 @@ def set_default_parameter(th,w,h):
 	if not('peak_th' in th[0]):th[0]['peak_th']=0.02
 	if not('peak_th_auto' in th[0]):th[0]['peak_th_auto']=1
 	if not('peak_neigh' in th[0]):th[0]['peak_neigh']=1
-	if not('peak_conv_size' in th[0]):th[0]['peak_conv_size']=2.2
+	if not('peak_conv_size' in th[0]):th[0]['peak_conv_size']=10.
 	if not('peak_conv' in th[0]):th[0]['peak_conv']=1
 	if not('peak_subpix' in th[0]):th[0]['peak_subpix']=1
 	if not('peak_minima' in th[0]):th[0]['peak_minima']=0
@@ -314,8 +315,31 @@ def feature_detection(F,th):
 		[x,y,z]=maximaThresh(Ff,1+2*int(th[0]['peak_neigh']),th)
 	return Ff,x,y,z
 
+def imProj(I,proj):
+	if proj.shape[0]>=4:		
+		if (proj.shape[1]!=4)|(proj.shape[0]<4):
+			print('ERROR: Bad formating of _proj.txt file. See documentation')		
+			return I
+	# Projective transform if file found
+		src_points = np.float32([proj[i,:2] for i in range(proj.shape[0])])
+		dst_points = np.float32([proj[i,2:] for i in range(proj.shape[0])])
+		projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+		
+		# Compute image size
+		pts_bnd = np.float32([[0,0],[0,I.shape[0]],[I.shape[1],I.shape[0]],[I.shape[1],0]]).reshape(-1,1,2)
+		pts_bnd_= cv2.perspectiveTransform(pts_bnd, projective_matrix)
+		[xmin, ymin] = np.int32(pts_bnd_.min(axis=0).ravel() - 0.5)
+		[xmax, ymax] = np.int32(pts_bnd_.max(axis=0).ravel() + 0.5)
+		t = [-xmin,-ymin]
+		Ht = np.array([[1,0,t[0]],[0,1,t[1]],[0,0,1]]) # Translate
+		I = cv2.warpPerspective(I,Ht.dot(projective_matrix), (xmax-xmin,ymax-ymin))	
+		# Only square
+		#I = cv2.warpPerspective(I, projective_matrix, (int(proj[:,2].max()),int(proj[:,3].max())))
+	return I
+
 def imProc(I,th):
 # Default pre-processing steps on images
+# To Greyscale
 	if len(I.shape)>2: I = cv2.cvtColor(I, cv2.COLOR_BGR2GRAY)
 	if I.dtype == 'uint8': Im = np.float32(I)/256. # ALways convert to float Images
 	if I.dtype == 'uint16': Im = np.float32(I)/2.**16 # ALways convert to float
@@ -489,34 +513,48 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		print('> file : '+filename)
 		print(sep)
 
+	
+
 	# Read Video Stream or image sequence
 	flag_im=is_image(filename)
 	flag_web=0 # flag if videosource is webcam
+	
+	# Check if projective transform file exist in folder
+	path,name=os.path.split(filename)
+	
+	# Read Projective transform file if it exist
+	if os.path.isfile(path+'/projection.txt'):
+		proj=np.loadtxt(path+'/projection.txt')
+	else:
+		proj=np.array([])
+		
+	
 	if flag_im: # Image list
 		flist=sorted(glob.glob(filename))
 		#pdb.set_trace()
-		I0=cv2.imread(flist[0],2)
+		I0=imProj(cv2.imread(flist[0],2),proj)
 		nFrames=len(flist)
-		width=I0.shape[1]
-		height=I0.shape[0]
+		height,width=I0.shape[:2]
 	elif filename=='0': # WebCam
 		flag_web=1
 		cv2.destroyAllWindows()
 		cap = cv2.VideoCapture(0)
 		nFrames=10000
-		width=int(cap.get(3))
-		height=int(cap.get(4))
+		I0=cap.read()[1]
+		I0=imProj(I0,proj)
+		height,width=I0.shape[:2]
 	else:	# Video
 		cv2.destroyAllWindows()
 		cap = cv2.VideoCapture(filename)
+		I0=cap.read()[1]
+		I0=imProj(I0,proj)
+		height,width=I0.shape[:2]
 		if imutils.is_cv2():
+			cap.set(cv2.cv.CAP_PROP_POS_FRAMES,0) # Rewind
 			nFrames=int(cap.get(cv2.cv.CAP_PROP_FRAME_COUNT))
-			width=int(cap.get(cv2.cv.CAP_PROP_FRAME_WIDTH))
-			height=int(cap.get(cv2.cv.CAP_PROP_FRAME_HEIGHT))
 		elif imutils.is_cv3() or imutils.is_cv4() :
+			cap.set(cv2.CAP_PROP_POS_FRAMES,0)# Rewind
 			nFrames=int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-			width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-			height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 		else:
 			print('Bad OpenCV version. Please install opencv3')
 			sys.exit()
@@ -526,7 +564,6 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		sys.exit()
 
 	# Read Parameters or set to defaut values
-	path,name=os.path.split(filename)
 	if len(path)==0:
 		path='./'
 	if flag_im:
@@ -536,6 +573,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 
 	if not th[0]: th = read_parameter_file(parameter_filename)
 	# Set remaining Parameters and Save
+	
 	th = set_default_parameter(th,width,height)
 	write_parameter_file(parameter_filename,th)
 
@@ -570,31 +608,35 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 
 	Pts=[]
 
-		
-
-
 	# Read 2 first frames and initialize
+	if flag_web:
+		time0=time.time()
+
 	I0 = cv2.imread(flist[0],2) if flag_im else cap.read()[1];
-	if flag_web: time0=time.time()
+	I0=imProj(I0,proj)
 	I0f=imProc(I0,th)
-	I1 = cv2.imread(flist[1],2) if flag_im else cap.read()[1];
+	
+		
 	if flag_web:
 		time1=time.time()
 		dt[0]=time1-time0
 		time0=time1
-	I1f=imProc(I1,th)
 
+	I1 = cv2.imread(flist[1],2) if flag_im else cap.read()[1];
+	I1=imProj(I1,proj)
+	I1f=imProc(I1,th)
+	
 	# Read Mask file if any
 	mask_file=path+'/' + name[:-4]+'_mask.tif'
 	if os.path.isfile(mask_file):
 		mask=cv2.imread(mask_file,2)
+		mask=imProj(mask,proj)
 		mask=imProc(mask,th)
 	else:
 		mask=np.ones(I1f.shape,dtype='float32')
 
 	#print(mask_file,mask.shape)
-	w=np.shape(I0f)[1]
-	h=np.shape(I0f)[0]
+	h,w=np.shape(I0f)
 
 	#Initialize Background
 	B=np.zeros((h,w),dtype=np.float32)
@@ -603,6 +645,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			print('Initiating Background image over the firsts {:d} frames...'.format(nbgstart))
 			for i in range(nbgstart):
 				I = cv2.imread(flist[i],2) if flag_im else cap.read()[1];
+				I=imProj(I,proj)
 				I=imProc(I,th)
 				B=B+I/nbgstart
 		
@@ -618,7 +661,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 					
 	# Initialize Plot
 	if PLOT>0:
-		init_plot(w,h)
+		init_plot(I0f.shape[1],I0f.shape[0])
 		if PAR:
 			queue = mp.Queue()
 			p = mp.Process(target=visualization_worker, args=(queue,))
@@ -738,7 +781,8 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			dt[i-1]=time1-time0
 			time0=time1
 			print('Webcam Framerate: {:1.1f} fps'.format(1./dt[i-1]))
-
+		
+		I2=imProj(I2,proj)
 		I2f=imProc(I2,th)
 		F2 = I2f*mask-B
 
