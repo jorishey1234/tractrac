@@ -904,7 +904,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			A=A+np.nan
 			
 		# Save Frame ID Position Speed Acceleration
-		if OUTPUT & (i>=len(N)-nFrames+2) :
+		if (OUTPUT>0) & (i>=len(N)-nFrames+2) :
 			newPts=np.vstack(((np.zeros(len(idgood))+N[i]-np.sign(dt[i-1])).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T,A[idgood,:].T, Umotion[idgood,:].T,errU[idgood].T)).T
 			Pts.append(newPts) # We use list for dynamic resizing of arrays
 
@@ -981,7 +981,11 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		Pts=np.concatenate(Pts)
 		if not os.path.isdir(path+'/TracTrac/'):
 			os.mkdir(path+'/TracTrac/')
-		output_filename=path+'/TracTrac/' + name[:-4]+'_track.txt'
+			
+		if flag_im:
+			output_filename=path+'/TracTrac/' + name[-3:]+'seq_track.txt' # If list of image, default name different
+		else:
+			output_filename=path+'/TracTrac/' + name[:-4]+'_track.txt'
 		if INFO:
 			print('Saving to ASCII file '+ output_filename +'...')
 		head='TracTrac v'+version +' \n Parameters: '+str(th[0])+'\n Frame ID x y Vx Vy Ax Ay Vx(prediction) Vy(prediction) Error(prediction)'
@@ -993,10 +997,14 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	# SAVING HDF5 ####################
 	if OUTPUT==2:
 		# Transform Pts into a numpy array
-		Pts=np.concatenate(Pts)		
+		Pts=np.concatenate(Pts)
+		print(Pts.shape)
 		if not os.path.isdir(path+'/TracTrac/'):
 			os.mkdir(path+'/TracTrac/')
-		output_filename=path+'/TracTrac/' + name[:-4]+'_track.hdf5'
+		if flag_im:
+			output_filename=path+'/TracTrac/' + name[-3:]+'seq_track.hdf5' # If list of image, default name different
+		else:
+			output_filename=path+'/TracTrac/' + name[:-4]+'_track.hdf5'
 		if INFO:
 			print('Saving to binary file '+ output_filename +'...')
 		f = h5py.File(output_filename,'w')
@@ -1020,20 +1028,24 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 	if AVERAGES:
 		if not os.path.isdir(path+'/TracTrac/'):
 			os.mkdir(path+'/TracTrac/')
+		if flag_im:
+			output_filename=path+'/TracTrac/' + name[-3:]+'seq' # If list of image, default name different
+		else:
+			output_filename=path+'/TracTrac/' + name[:-4]
 		Av_N[Av_N==0]=np.nan
 		Ui=Av_U/Av_N
-		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_Ux_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+		cv2.imwrite(output_filename+'_Ux_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
 														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
 														
 		Ui=Av_V/Av_N
-		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_Uy_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+		cv2.imwrite(output_filename+'_Uy_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
 														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
 														
 		Ui=np.sqrt(Av_U**2.+Av_V**2.)/Av_N
-		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_Umag_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+		cv2.imwrite(output_filename+'_Umag_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
 														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
 		Ui=Av_N
-		cv2.imwrite(path+'/TracTrac/'+ name[:-4]+'_N_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+		cv2.imwrite(output_filename+'_N_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
 														np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
 
 		if INFO:
