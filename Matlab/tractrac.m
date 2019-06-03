@@ -80,6 +80,14 @@ function FileName_Callback(hObject, eventdata, handles)
 
 % Hint: get(hObject,'Value') returns toggle state of Load_vid
 
+function I=imProj(I,proj)
+%DO perspective transform
+if size(proj,1)>3
+    T = maketform('projective',proj(:,1:2),proj(:,3:4));
+    I=imtransform(I,T);
+end
+
+
 function Im=imProc(I,th,ROI)
 % Check image bit depth
 if isa(I,'uint16')
@@ -156,8 +164,10 @@ set(gcf,'InvertHardcopy','off');
 
 %Get data
 data=guidata(hObject);
-
 path=data.path;
+
+
+% WebCamera 
 if ~isfield(data,'cam')
     nFrames=data.nFrames;
     vid1=data.vid1;
@@ -180,6 +190,9 @@ I00=read(vid1,1);
 else
 I00=imread([path '/' vid1.flist(1).name]);
 end
+
+% Apply perspective transform
+I00=imProj(I00,data.proj);
 
 ImW=size(I00,2);
 ImH=size(I00,1);
@@ -215,6 +228,10 @@ I0=imread([path '/' vid1.flist(1).name]);
 I1=imread([path '/' vid1.flist(2).name]);
 end
 
+% Apply perspective transform
+I0=imProj(I0,data.proj);
+I1=imProj(I1,data.proj);
+
 % Filter images
 I0=imProc(I0,th,ROI);
 I1=imProc(I1,th,ROI);
@@ -247,7 +264,8 @@ if th.BgOn,
         I=read(vid1,i);
         else
         I=imread([path '/' vid1.flist(i).name]);
-        end    
+        end  
+        I=imProj(I,data.proj);  
         I=imProc(I,th,ROI);
         B=B+I/(nbgstart/4);    
     end
@@ -425,7 +443,8 @@ I2=read(vid1,N(n));
 else
 I2=imread([path '/' vid1.flist(N(n)).name]);
 end
-
+%parspective trnsform
+I2=imProj(I2,data.proj);  
 Iraw=I2;
 
 I2=imProc(I2,th,ROI); % Preprocesing
@@ -1089,7 +1108,8 @@ function MotionFilt_CreateFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
-% Hint: edit controls usually have a white background on Windows.
+% Hint: edit controls usually have a white backgropostpro
+und on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
@@ -1324,6 +1344,13 @@ function load_img(hObject, eventdata, handles)
 data=guidata(hObject);
 if isfield(data,'cam'), delete(data.cam); data=rmfield(data,'cam'); end
 
+% Load prohection file if exist
+if exist([data.path '/projection.txt']);
+    data.proj=dlmread([data.path '/projection.txt']);
+else
+    data.proj=[];
+end
+
 filename=data.fname;
 path=data.path;
 ext=data.ext;
@@ -1331,6 +1358,10 @@ flist=dir([path '/*' ext]);
 vid1.flist=flist;
 nFrames=length(flist);
 I00=imread([path '/' flist(1).name]);
+
+% projective transform
+I00=imProj(I00,data.proj);
+
 
 
 % reset current axes
@@ -1424,6 +1455,14 @@ function load_video(hObject, eventdata, handles)
 
 data=guidata(hObject);
 
+
+% Load prohection file if exist
+if exist([data.path '/projection.txt']);
+    data.proj=dlmread([data.path '/projection.txt']);
+else
+    data.proj=[];
+end
+
 if isfield(data,'cam'), delete(data.cam); data=rmfield(data,'cam'); end
 
 filename=[data.path '/' data.fname data.ext];
@@ -1432,6 +1471,9 @@ if exist(filename)
 vid1 = VideoReader(filename);
 nFrames=vid1.NumberOfFrames;
 I00=read(vid1,1);
+
+% projective transform
+I00=imProj(I00,data.proj);
 
 
 % reset current axes
@@ -1526,6 +1568,14 @@ data=guidata(hObject);
 filename=[path file];
 [path, name, ext] = fileparts(filename);
 data.path=path;data.fname=name;data.ext=ext;
+
+% Load prohection file if exist
+if exist([data.path '/projection.txt'])
+    data.proj=dlmread([data.path '/projection.txt']);
+else
+    data.proj=[];
+end
+
 if sum(strcmpi(ext,{'.avi','.mj2','.mp4'}))>0
     data.isvid=1; guidata(hObject,data);
     load_video(hObject, eventdata, handles);
@@ -2079,8 +2129,8 @@ function PostProc_Callback(hObject, eventdata, handles)
 
 
 data=guidata(hObject);
-filename_mat=[data.path '/' data.fname '_track.mat'];
-filename_txt=[data.path '/' data.fname '_track.txt'];
+filename_mat=[data.path '/TracTrac/' data.fname '_track.mat'];
+filename_txt=[data.path '/TracTrac/' data.fname '_track.txt'];
 
 if isfield(data,'infos_all'),
 data.infos_all=[sprintf('> Loading Raw Track file ... \n') data.infos_all];
@@ -3426,6 +3476,7 @@ function load_webcam_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 data=guidata(hObject);
+data.proj=[];
 if isfield(data,'cam');
     
 delete(data.cam); 
