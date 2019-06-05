@@ -3,7 +3,7 @@
 
 function varargout = tractrac(varargin)
 version='2.0';
-% Last Modified by GUIDE v2.5 06-Feb-2019 18:57:21
+% Last Modified by GUIDE v2.5 05-Jun-2019 08:48:02
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
@@ -1109,7 +1109,6 @@ function MotionFilt_CreateFcn(hObject, eventdata, handles)
 % handles    empty - handles not created until after all CreateFcns called
 
 % Hint: edit controls usually have a white backgropostpro
-und on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
@@ -2269,8 +2268,9 @@ drawnow
  Frames=data.Frames;
   if ~ exist([data.path '/TracTrac/'])
      mkdir([data.path '/TracTrac/'])
- end
- save([data.path '/TracTrac/' data.fname '_PostProc.mat'],'U','V','E','X','Y','dx','dy','res','fps','Frames','-v7.3');
+  end
+ % Prefer v6 to v7 for reason explain here : https://fr.mathworks.com/matlabcentral/answers/93508-why-does-it-take-long-time-to-load-a-mat-file-containing-cell-arrays
+ save([data.path '/TracTrac/' data.fname '_PostProc.mat'],'U','V','E','X','Y','dx','dy','res','fps','Frames','-v6');
  
 data.infos_all=[sprintf('> Post-Proc saved to TracTrac/%s_PostProc.mat \n',data.fname) data.infos_all];
 set(handles.Info,'String',data.infos_all);
@@ -2458,7 +2458,7 @@ if PostPlotType>6 % 2D plots
          data.figname='100traj';
          % Plot 500 traj
         ntraj=100;
-        filename=[data.path '/' data.fname '_track.mat'];
+        filename=[data.path '/TracTrac/' data.fname '_track.mat'];
         load(filename);
         idtraj=unique(round(rand(ntraj,1)*max(Pts(:,2))));
         figure(PostPlotType)
@@ -2477,7 +2477,7 @@ if PostPlotType>6 % 2D plots
          data.figname='500traj';
          % Plot 500 traj
         ntraj=500;
-        filename=[data.path '/' data.fname '_track.mat'];
+        filename=[data.path '/TracTrac/' data.fname '_track.mat'];
         load(filename);
         idtraj=unique(round(rand(ntraj,1)*max(Pts(:,2))));
              figure(PostPlotType)
@@ -2496,7 +2496,7 @@ if PostPlotType>6 % 2D plots
          data.figname='1000traj';
          % Plot 500 traj
         ntraj=2000;
-        filename=[data.path '/' data.fname '_track.mat'];
+        filename=[data.path '/TracTrac/' data.fname '_track.mat'];
         load(filename);
         idtraj=unique(round(rand(ntraj,1)*max(Pts(:,2))));
         figure(PostPlotType)
@@ -3624,4 +3624,3 @@ function PlotColorType_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-
