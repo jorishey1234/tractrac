@@ -1,5 +1,9 @@
 # TracTrac PTV Software: a fast multi-object tracking algorithm for motion estimation
 
+<div align="center">
+<img src="http://perso.univ-rennes1.fr/joris.heyman/img/anim-1.gif" loop=infinite style="width:680px">
+</div>
+
 TracTrac is an open-source Matlab/Python implementation of a robust and efficient object tracking algorithm capable of simultaneously tracking several thousands of objects in very short time. Originally developed as an alternative to particle image velocimetry algorithms for estimating fluid flow velocities, its versatility and robustness makes it relevant to many other dynamic sceneries encountered in geophysics such as granular flows and drone videography. In this article, the structure of the algorithm is detailed and its capacity to resolve strongly variable and intermittent object motions is tested against three examples of geophysical interest.
 TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7/3.6 with OpenCV2) or Matlab (>2014a with Computer Vision and statistics toolbox). Give it a try !
 
