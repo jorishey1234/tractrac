@@ -5,15 +5,12 @@
 </div>
 
 TracTrac is an open-source Matlab/Python implementation of a robust and efficient object tracking algorithm capable of simultaneously tracking several thousands of objects in very short time. Originally developed as an alternative to particle image velocimetry algorithms for estimating fluid flow velocities, its versatility and robustness makes it relevant to many other dynamic sceneries encountered in geophysics such as granular flows and drone videography. In this article, the structure of the algorithm is detailed and its capacity to resolve strongly variable and intermittent object motions is tested against three examples of geophysical interest.
-<<<<<<< HEAD
-TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7 with OpenCV2) or Matlab (>2014a with Image Processing Toolbox and Statistics Toolbox). Give it a try !
-=======
-TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7/3.6 with OpenCV2) or Matlab (>2014a with Computer Vision and statistics toolbox). Give it a try !
->>>>>>> 4be41c828d0e29e748d5cf837bf30421ea8c20ac
+
+TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7/3.6 with OpenCV2) or Matlab (>2014a with Computer Vision and Statistics toolbox). Give it a try !
 
 
 # Reference
-Please cite the following reference:
+TracTrac has been tested in the following reference:
 
 Heyman J., TracTrac: A fast multi-object tracking algorithm for motion estimation, Computers & Geosciences, Volume 128, 2019, Pages 11-18,doi: 10.1016/j.cageo.2019.03.007
 
