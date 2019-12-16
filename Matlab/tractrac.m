@@ -4,6 +4,19 @@
 function varargout = tractrac(varargin)
 version='2.0';
 % Last Modified by GUIDE v2.5 05-Jun-2019 08:48:02
+
+% Check Topolboxx Licences 
+%names = dependencies.toolboxDependencyAnalysis(files_in) 
+if ~license('test','Statistics_Toolbox'),
+	disp('ERROR! Missing Toolbox for TracTrac to run properly : Statistics Toolbox')
+	return
+end
+
+if ~license('test','Image_Toolbox'),
+	disp('ERROR! Missing Toolbox for TracTrac to run properly : Image Processing Toolbox')
+	return
+end
+
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
@@ -42,6 +55,18 @@ guidata(hObject, handles);
 if exist('tractrac.png')
 I=imread('tractrac.png');
 imshow(I,'Parent',handles.axes1);
+end
+
+% Check Topolboxx Licences 
+%names = dependencies.toolboxDependencyAnalysis(files_in) 
+if ~license('test','Statistics_Toolbox'),
+	disp('ERROR! Missing Toolbox for TracTrac to run properly : Statistics Toolbox')
+	return
+end
+
+if ~license('test','Image_Toolbox'),
+	disp('ERROR! Missing Toolbox for TracTrac to run properly : Image Processing Toolbox')
+	return
 end
 
 % set defaut filemenu path to current folder
@@ -875,7 +900,7 @@ function Save_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 data=guidata(hObject);
 if isfield(data,'Pts'),
- filename=data.fname;
+ %filename=data.fname;
  filename=[data.path '/TracTrac/' data.fname '_track'];
  if ~ exist([data.path '/TracTrac/'])
      mkdir([data.path '/TracTrac/'])
@@ -1343,7 +1368,7 @@ function load_img(hObject, eventdata, handles)
 data=guidata(hObject);
 if isfield(data,'cam'), delete(data.cam); data=rmfield(data,'cam'); end
 
-% Load prohection file if exist
+% Load projection file if exist
 if exist([data.path '/projection.txt']);
     data.proj=dlmread([data.path '/projection.txt']);
 else
