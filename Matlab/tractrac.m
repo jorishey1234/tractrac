@@ -284,7 +284,8 @@ if th.BgOn,
     set(handles.Info,'String',sprintf('... Initializing Background ... %02i',floor(i/nbgstart*100)));
     drawnow
         if isfield(data,'cam'), 
-        I=snapshot(data.cam)
+        %I=snapshot(data.cam);
+        break
         elseif data.isvid
         I=read(vid1,i);
         else
@@ -2676,6 +2677,9 @@ function Filelist_Callback(hObject, eventdata, handles)
 % pathstr=[];
 % end
 
+% Force saving trajectories
+set(handles.SaveTrajOn,'Value',1)
+
 [file, path] = uigetfile({'*.txt;','Filelist in txt format'});
 filelist=[path file];
 
@@ -2685,9 +2689,20 @@ fid=fopen(filelist,'r');
 T=textscan(fid,'%s');
 
 for t=1:length(T{1,:})
-filename=T{1}{t};
-set(handles.Load_vid,'String',filename);
-drawnow
+filename=T{1}{t}
+
+
+%set(handles.Load_vid,'String',filename);
+%drawnow
+
+data=guidata(hObject);
+[path, name, ext] = fileparts(filename);
+data.path=path;
+data.fname=name;
+data.ext=ext;
+data.isvid=1; % filelist only works for video files
+guidata(hObject,data);
+
 if exist(filename)
 % Load video filemenu
 load_video(hObject, eventdata, handles)
@@ -2696,13 +2711,15 @@ Start_Callback(hObject, eventdata, handles)
 % save treatment
 %Save_Callback(hObject, eventdata, handles)
 SaveASCII_Callback(hObject, eventdata, handles)
+Save_Averages_Callback(hObject, eventdata, handles)
 % Post Processing
 PostProc_Callback(hObject, eventdata, handles)
 % save Post Processing
 PostSave_Callback(hObject, eventdata, handles)
 %clear existing data
-guidata(hObject,struct());
+%guidata(hObject,struct());
 end
+
 end
 fclose(fid)
 else
