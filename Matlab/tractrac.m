@@ -2709,8 +2709,8 @@ load_video(hObject, eventdata, handles)
 % start treatment
 Start_Callback(hObject, eventdata, handles)
 % save treatment
-%Save_Callback(hObject, eventdata, handles)
-SaveASCII_Callback(hObject, eventdata, handles)
+Save_Callback(hObject, eventdata, handles) % MAT format
+%SaveASCII_Callback(hObject, eventdata, handles) % ASCII format
 Save_Averages_Callback(hObject, eventdata, handles)
 % Post Processing
 PostProc_Callback(hObject, eventdata, handles)
