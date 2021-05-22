@@ -20,7 +20,6 @@
 #                        Save tracking results in a file ASCII (1) or HDF5 (2)
 #  -opp, --outputpp      Save Post Processing results in a file
 #  -s, --silent          No tracking infos
-#  -p PLOT, --plot PLOT  Live plot of tracking results
 #  -sp, --saveplot       Save plots in image sequence
 #  -par PARALLEL, --parallel PARALLEL
 #                        Visualization in a Parallel Thread
@@ -1228,7 +1227,6 @@ if __name__ == "__main__":
 	parser.add_argument('-opp','--outputpp', help='Save Post Processing results in a file', action='store_true',default=False)
 	parser.add_argument('-s','--silent',help='No tracking infos', action='store_false',default=True)
 	# Plotting Options
-	parser.add_argument('-p','--plot', type=int,help='Live plot of tracking results', default=0)
 	parser.add_argument('-sp','--saveplot', help='Save plots in image sequence', action='store_true')
 	parser.add_argument('-par','--parallel', type=int,help='Visualization in a Parallel Thread', default=0)
 
@@ -1236,7 +1234,6 @@ if __name__ == "__main__":
 	filename=args.file
 	tfile=args.tfile
 	mmfilename=args.motionmodelfile
-	PLOT=args.plot
 	AVERAGES=args.averages
 	OUTPUT=args.output
 	OUTPUT_PP=args.outputpp
