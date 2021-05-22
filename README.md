@@ -8,6 +8,8 @@ TracTrac is an open-source Matlab/Python implementation of a robust and efficien
 
 TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7/3.6 with OpenCV2) or Matlab (>2014a with Computer Vision and Statistics toolbox). Give it a try !
 
+From version v3.0, TracTrac will be only developped for Python. It offers better graphical outputs and live adaptation of parameters from the txt file. Speed is higher, and it is completely open-source. 
+
 
 # Reference
 TracTrac has been tested in the following reference:
@@ -19,38 +21,31 @@ The article is available in <a href="https://perso.univ-rennes1.fr/joris.heyman/
 Contact: joris.heyman@univ-rennes1.fr 
 
 
-# User guide Matlab
-1) Installation 
-Download and extract the Git repository. Make sure you have Matlab version >2014a with Image Processing Toolbox and Statistics and Machine Learning Toolbox installed.  
-
-2) In the Matlab folder, run TracTrac Graphical User Interface with 
-> tractrac 
-
 # User guide Python2 and Python3
 1) Installation
 Download and extract the Git repository. Make sure you have a working installation of python2.7 or python3.xx. Install the extra packages scipy, opencv-python, imutils, h5py, parse via the terminal :
-> pip install scipy opencv-python imutils h5py parse --user
-
+> pip3 install scipy opencv-python imutils h5py parse --user
 
 2) In the Python folder, run test case, plot and save average velocities with
-> python tractrac.py -p 1 -a
+> python tractrac.py -a
 
 3) Get help on available commands with :
 > python tractrac.py --help
 
 4) Other sample cases may be run as
-> python tractrac.py -f "../Sample_videos/videotest.avi" -p 1
-
-or
-> python tractrac.py -f "../Sample_videos/PIVChallenge/*.tif" -p 2
-
-or
-> python tractrac.py -f "../Sample_videos/RiverDrone/*.tif" -p 2
+> python tractrac.py -f "../Sample_videos/videotest.avi"
 
 Run live-treatment by webcam acquisition by
-> python tractrac.py -f "0" -p 1 -cmax 50
+> python tractrac.py -f "0"
 
-Details of parameters and commands are given in the publication <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman (2019) </a>.
+Tracking parameters can be changed (before and while processing) in the txt file _par.txt. Precise meaning of parameters are given in the publication <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman (2019) </a>.
+
+# User guide Matlab
+1) Installation 
+Download and extract the Git repository. Make sure you have Matlab version >2014a with Image Processing Toolbox and Statistics and Machine Learning Toolbox installed.
+
+2) In the Matlab folder, run TracTrac Graphical User Interface with 
+> tractrac 
 
 # Output formats
 
