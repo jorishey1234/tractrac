@@ -8,7 +8,7 @@ TracTrac is an open-source Matlab/Python implementation of a robust and efficien
 
 TracTrac is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7/3.6/3.8 with OpenCV2) or Matlab (>2014a with Computer Vision and Statistics toolbox). Give it a try !
 
-# From version v3.0, development of TracTrac will be only continued for Python. Python environment now offers graphical outputs and live adaptation of parameters via the text parameter file.
+**From version v3.0, development of TracTrac will be only continued for Python. Python environment now offers graphical outputs and live adaptation of parameters via the text parameter file.
 
 
 # Reference
