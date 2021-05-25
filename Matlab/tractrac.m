@@ -284,7 +284,8 @@ if th.BgOn,
     set(handles.Info,'String',sprintf('... Initializing Background ... %02i',floor(i/nbgstart*100)));
     drawnow
         if isfield(data,'cam'), 
-        I=snapshot(data.cam)
+        %I=snapshot(data.cam);
+        break
         elseif data.isvid
         I=read(vid1,i);
         else
@@ -596,7 +597,7 @@ end
 
 % Only save the Mean velocities on the pixel grid
 %if get(handles.SaveAverageOn,'Value'),
-if (n>=length(N)-nFrames+2),
+if (n>=length(N)-nFrames+2)&(length(idgood)>1),
     id_x=sub2ind(size(I0),round(X1(idgood,2)),round(X1(idgood,1)));
     U_average(id_x)=U_average(id_x)+um(idgood,1);
     V_average(id_x)=V_average(id_x)+um(idgood,2);
@@ -618,7 +619,7 @@ switch get(handles.PlotImageType,'Value')
     case 3
     set(handles.h_image,'CData',imadjust(F));
     case 4
-    set(handles.h_image,'CData',imadjust(Ff));
+    set(handles.h_image,'CData',(Ff-min(Ff(:)))/(max(Ff(:))-min(Ff(:))));
     case 5
     set(handles.h_image,'CData',B);
     case 6
@@ -2676,6 +2677,9 @@ function Filelist_Callback(hObject, eventdata, handles)
 % pathstr=[];
 % end
 
+% Force saving trajectories
+set(handles.SaveTrajOn,'Value',1)
+
 [file, path] = uigetfile({'*.txt;','Filelist in txt format'});
 filelist=[path file];
 
@@ -2685,24 +2689,37 @@ fid=fopen(filelist,'r');
 T=textscan(fid,'%s');
 
 for t=1:length(T{1,:})
-filename=T{1}{t};
-set(handles.Load_vid,'String',filename);
-drawnow
+filename=T{1}{t}
+
+
+%set(handles.Load_vid,'String',filename);
+%drawnow
+
+data=guidata(hObject);
+[path, name, ext] = fileparts(filename);
+data.path=path;
+data.fname=name;
+data.ext=ext;
+data.isvid=1; % filelist only works for video files
+guidata(hObject,data);
+
 if exist(filename)
 % Load video filemenu
 load_video(hObject, eventdata, handles)
 % start treatment
 Start_Callback(hObject, eventdata, handles)
 % save treatment
-%Save_Callback(hObject, eventdata, handles)
-SaveASCII_Callback(hObject, eventdata, handles)
+Save_Callback(hObject, eventdata, handles) % MAT format
+%SaveASCII_Callback(hObject, eventdata, handles) % ASCII format
+Save_Averages_Callback(hObject, eventdata, handles)
 % Post Processing
 PostProc_Callback(hObject, eventdata, handles)
 % save Post Processing
 PostSave_Callback(hObject, eventdata, handles)
 %clear existing data
-guidata(hObject,struct());
+%guidata(hObject,struct());
 end
+
 end
 fclose(fid)
 else
