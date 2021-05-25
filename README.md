@@ -6,9 +6,9 @@
 
 TracTrac is an open-source Matlab/Python implementation of a robust and efficient object tracking algorithm capable of simultaneously tracking several thousands of objects in very short time. Originally developed as an alternative to particle image velocimetry algorithms for estimating fluid flow velocities, its versatility and robustness makes it relevant to many other dynamic sceneries encountered in geophysics such as granular flows and drone videography. In this article, the structure of the algorithm is detailed and its capacity to resolve strongly variable and intermittent object motions is tested against three examples of geophysical interest.
 
-TracTrac is a Particle Tracking Velocimetry (PTV) software which is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7/3.6 with OpenCV2) or Matlab (>2014a with Computer Vision and Statistics toolbox). Give it a try !
+TracTrac is fast (more than 10000 points tracked per second) and accurate (up to 0.01 pixel resolution), forming thus a good concurrent to the state-of-the art PIV algorithms. It allows to track anything that moves: birds, ants, grains, water flows... It runs on Python (v2.7/3.6/3.8 with OpenCV2) or Matlab (>2014a with Computer Vision and Statistics toolbox). Give it a try !
 
-From version v3.0, TracTrac will be only developped for Python. It offers better graphical outputs and live adaptation of parameters from the txt file. Speed is higher, and it is completely open-source. 
+# From version v3.0, development of TracTrac will be only continued for Python. Python environment now offers graphical outputs and live adaptation of parameters via the text parameter file.
 
 
 # Reference
@@ -27,18 +27,18 @@ Download and extract the Git repository. Make sure you have a working installati
 > pip3 install scipy opencv-python imutils h5py parse --user
 
 2) In the Python folder, run test case, plot and save average velocities with
-> python tractrac.py -a
+> python3 tractrac.py -a
 
 3) Get help on available commands with :
-> python tractrac.py --help
+> python3 tractrac.py --help
 
 4) Other sample cases may be run as
-> python tractrac.py -f "../Sample_videos/videotest.avi"
+> python3 tractrac.py -f "../Sample_videos/videotest.avi"
 
 Run live-treatment by webcam acquisition by
-> python tractrac.py -f "0"
+> python3 tractrac.py -f "0"
 
-Tracking parameters can be changed (before and while processing) in the txt file _par.txt. Precise meaning of parameters are given in the publication <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman (2019) </a>.
+Tracking parameters can be changed (before and during processing) in the txt file "*_par.txt" which is automatically created in the video folder. Precise meaning of parameters are given in the publication <a href="https://perso.univ-rennes1.fr/joris.heyman/PDF/tractrac_final.pdf" > Heyman (2019) </a>.
 
 # User guide Matlab
 1) Installation 
