@@ -1,9 +1,12 @@
 % Run GUI with 
 % >> tractrac
+% Warning : Matlab GUI will not be developped further than version 2.0 (2021)
+% Please switch soon to Python version, which is also graphical
 
 function varargout = tractrac(varargin)
 version='2.0';
-% Last Modified by GUIDE v2.5 05-Jun-2019 08:48:02
+
+% 
 
 % Check Topolboxx Licences 
 %names = dependencies.toolboxDependencyAnalysis(files_in) 
