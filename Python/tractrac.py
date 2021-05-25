@@ -4,10 +4,9 @@
 # TRACTRAC -Masive Object Tracking Software
 #==============================================================================
 #usage: tractrac.py [-h] [-f FILE] [-tf TFILE] [-mmf MOTIONMODELFILE] [-a]
-#                   [-o OUTPUT] [-opp] [-s] [-p PLOT] [-sp] [-cmin CMIN]
-#                   [-cmax CMAX] [-ca CALPHA] [-par PARALLEL]
+#                   [-o OUTPUT] [-opp] [-s] [-p PLOT] [-sp] [-par PARALLEL]
 #
-#TRACTRAC v2.01 (16/04/2019) - Joris Heyman
+#TRACTRAC - Joris Heyman
 #
 #optional arguments:
 #  -h, --help            show this help message and exit
@@ -21,14 +20,7 @@
 #                        Save tracking results in a file ASCII (1) or HDF5 (2)
 #  -opp, --outputpp      Save Post Processing results in a file
 #  -s, --silent          No tracking infos
-#  -p PLOT, --plot PLOT  Live plot of tracking results
 #  -sp, --saveplot       Save plots in image sequence
-#  -cmin CMIN, --cmin CMIN
-#                        Minimum velocity (px/frame) for plotting
-#  -cmax CMAX, --cmax CMAX
-#                        Maximum velocity (px/frame) for plotting
-#  -ca CALPHA, --calpha CALPHA
-#                        Alpha value for arrows
 #  -par PARALLEL, --parallel PARALLEL
 #                        Visualization in a Parallel Thread
 
@@ -54,8 +46,10 @@
 #==============================================================================
 #=============================================
 global version
-version= '2.02 (20/04/2019)'
+version= '3.0 (22/05/2021) | J. Heyman'
 #==============================================================================
+#v3.0 __________________________________
+# Graphical and live change of parameters (in _par.txt files)
 #v2.0 __________________________________
 # Fast Nearest Neighboor Search Integration (via scipy.spatial.DTree). No more paralelization windows are needed.
 
@@ -147,67 +141,114 @@ def Propagate_MotionModel_KdTree(C,Xm,Um,Em,Xm_old,Um_old,Em_old,th):
 #%
 
 # Initialize plot window and cbar
-def init_plot(w,h):
-	global fig,ax,qui_c,Cmin,Cmax,alpha,img,qui
+def init_plot(w,h,nFrames):
+	global fig,ax,ax1,ax2,qui_c,Cmin,Cmax,alpha,img,qui,th,qui_hist,qui_th,plot_time
 	size=10.0
-	fig=plt.figure(figsize=(float(w)/float(h)*size,size))
-	ax=fig.add_subplot(111)
+#	fig=plt.figure(figsize=(float(w)/float(h)*size,size), dpi=80)
+	plt.style.use(['dark_background'])
+	fig=plt.figure(figsize=(size,size), dpi=80)
+	fig.canvas.manager.set_window_title('TracTrac v'+version)
+	ax=fig.add_subplot(211)
+	ax1=fig.add_subplot(224)
+	ax2=fig.add_subplot(223)
 	plt.show(block=False)
-	qui=plt.quiver([],[],[],[], [], cmap = cm.rainbow, headlength=7,alpha=0.5)
-	plt.clim(Cmin,Cmax)
+	qui=ax.quiver([],[],[],[], [], cmap = cm.rainbow, headlength=7,alpha=0.5)
 	qui_c=plt.colorbar(qui,orientation='vertical', ax=ax,label='Velocity [px/frame]')
-	img=plt.imshow(np.zeros((h,w)),cmap='gray',clim=[0,1],zorder=-1,interpolation='nearest')
+	img=ax.imshow(np.zeros((h,w)),cmap='gray',clim=[0,1],zorder=-1,interpolation='nearest')
+	img.set_clim(0,1)
+	qui_c_ticks = np.linspace(0, 1, 4)
+	qui_c.set_ticks(qui_c_ticks)
 	ax.axis([0,w,h,0])
+	# Histogram
+	qui_hist=ax1.plot([0],[0],'.')
+	qui_th=ax1.plot([0,0],[1e-3,1e2],'r-',label='Detection threshold (peak_th)')
+	ax1.set_yscale('log')
+	ax1.set_xlim([-0.1,0.1])
+	ax1.set_ylim([1e-3,1e2])
+	ax1.set_xlabel('Object intensities')
+	ax1.legend()
+	#plt.subplots_adjust(left=0,bottom=0,right=1,top=1,wspace=0.05, hspace=0.01)
+	# Plot statistics through time
+	plot_time=[ax2.plot(np.arange(nFrames),np.zeros(nFrames),'r.',label='Objects (detected)'),
+	ax2.plot(np.arange(nFrames),np.zeros(nFrames),'b.',label='Object (tracked)'),
+	ax2.plot(np.arange(nFrames),np.zeros(nFrames),'g.',label='Model error (px)'),
+	ax2.plot(np.arange(nFrames),np.zeros(nFrames),'c.',label='Mean speed (px/frame)')]
+	ax2.set_xlim([0,nFrames])
+	ax2.set_yscale('log')
+	ax2.set_ylim([1e-1,1e5])
+	ax2.set_xlabel('Frames')
+	ax2.legend()
+	fig.canvas.draw()
+	#ax1.axis([0,w,h,0])
+	
 
 def plot(q):
-	global fig,ax,qui_c,Cmin,Cmax,alpha,th,SAVE_PLOT,plot_folder,img,qui
-	image,points,vectors,col,n,err = q
+	global fig,ax,ax1,ax2,qui_c,Cmin,Cmax,alpha,SAVE_PLOT,plot_folder,img,qui,qui_hist,qui_th,plot_time
+	image,points,vectors,col,n,err,th,Im,plot_time_stat,Cmin,Cmax,alpha = q
 	img.set_data(image)
-	if len(vectors)>0:
-		norm=np.sqrt(vectors[:,0]**2.+vectors[:,1]**2)
-		norm[norm==0]=1 # To avoid division problem
-		vectors[:,1]=vectors[:,1]/norm
-		vectors[:,0]=vectors[:,0]/norm
-#		vth=0.
-#		idquiv=np.where(norm>vth)[0]
-#		idscat=np.where(norm<vth)[0]
-	#ax.cla()
-	# Print Image
-	# Print Scatter
-	#sca=plt.scatter(points[:,0],points[:,1],s=th[0]['peak_conv_size']*20,c=col,alpha=alpha, cmap = cm.rainbow,vmin=Cmin,vmax=Cmax)
-	# Print Quiver
-#	angle=np.arctan2(vectors[:,0],vectors[:,1])*180/3.14
-#	for i in range(len(col)):
-#		plt.scatter(points[i,0],points[i,1],s=th[0]['peak_conv_size']*20,c=col[i],marker=(3,0,angle[i]),alpha=alpha, cmap = cm.rainbow,vmin=Cmin,vmax=Cmax)
-	# Quver plot
-	if len(vectors)==0:
+	if vectors.all()==0: # scatter plot
 		qui.remove()
-		qui=plt.quiver([],[],[],[], [], cmap = cm.rainbow, headlength=7,alpha=0.5)
+		points_per_particles=((th[0]['peak_conv_size']*ax.get_window_extent().width  / image.shape[0] * 72./fig.dpi) ** 2)
+		qui=ax.scatter(points[:,0],points[:,1],c=col[:],s=points_per_particles, cmap = cm.rainbow,alpha=alpha);# plt.clim(Cmin,Cmax)	
 	else:
-		#qui=plt.quiver(points[idquiv,0],points[idquiv,1],vectors[idquiv,0],-vectors[idquiv,1], col[idquiv], cmap = cm.rainbow,  pivot='middle', linewidth=.0,headwidth=1., headaxislength=1.,alpha=alpha); plt.clim(Cmin,Cmax)	
-		qui.remove()
-		qui=plt.quiver(points[:,0],points[:,1],vectors[:,0],-vectors[:,1], col[:], cmap = cm.rainbow,  pivot='middle', linewidth=.0,headwidth=1., headaxislength=1.,alpha=alpha); plt.clim(Cmin,Cmax)
-		#plt.scatter(points[idscat,0],points[idscat,1],c=col[idscat], s=2., cmap = cm.rainbow, alpha=alpha,edgecolors=None); plt.clim(Cmin,Cmax)
-	
+		if len(vectors)>0:
+			norm=np.sqrt(vectors[:,0]**2.+vectors[:,1]**2)
+			norm[norm==0]=1 # To avoid division problem
+			vectors[:,1]=vectors[:,1]/norm
+			vectors[:,0]=vectors[:,0]/norm
+	#		vth=0.
+	#		idquiv=np.where(norm>vth)[0]
+	#		idscat=np.where(norm<vth)[0]
+		#ax.cla()
+		# Print Image
+		# Print Scatter
+		#sca=plt.scatter(points[:,0],points[:,1],s=th[0]['peak_conv_size']*20,c=col,alpha=alpha, cmap = cm.rainbow,vmin=Cmin,vmax=Cmax)
+		# Print Quiver
+	#	angle=np.arctan2(vectors[:,0],vectors[:,1])*180/3.14
+	#	for i in range(len(col)):
+	#		plt.scatter(points[i,0],points[i,1],s=th[0]['peak_conv_size']*20,c=col[i],marker=(3,0,angle[i]),alpha=alpha, cmap = cm.rainbow,vmin=Cmin,vmax=Cmax)
+		# Quver plot
+		if len(vectors)==0:
+			qui.remove()
+			qui=ax.quiver([],[],[],[], [], cmap = cm.rainbow, headlength=7,alpha=0.5)
+		else:
+			#qui=plt.quiver(points[idquiv,0],points[idquiv,1],vectors[idquiv,0],-vectors[idquiv,1], col[idquiv], cmap = cm.rainbow,  pivot='middle', linewidth=.0,headwidth=1., headaxislength=1.,alpha=alpha); plt.clim(Cmin,Cmax)	
+			qui.remove()
+			qui=ax.quiver(points[:,0],points[:,1],vectors[:,0],-vectors[:,1], col[:], cmap = cm.rainbow,  pivot='middle', linewidth=.0,headwidth=1., headaxislength=1.,alpha=alpha);
+			qui.set_clim(Cmin,Cmax)
+			#plt.scatter(points[idscat,0],points[idscat,1],c=col[idscat], s=2., cmap = cm.rainbow, alpha=alpha,edgecolors=None); plt.clim(Cmin,Cmax)
+		
 	#ax.invert_yaxis()
 	#vectors[:,1]=-vectors[:,1]
-	if len(vectors)==0:
-		title='TracTrac v2.0 | Frame {:04d} | No object found'.format(n)
+	if len(points)==0:
+		title='Frame {:04d} | No object found'.format(n)
 	else:
-		title='TracTrac v2.0 | Frame {:04d} | Points tracked {:5d} | Mean Err. {:1.4f}px'.format(n,points.shape[0],10**err)
+		title='Frame {:04d} | Points tracked {:5d} |'.format(n,points.shape[0])
 	ax.set_title(title)
+	qui_c_ticks = ['{:1.1f}'.format(i) for i in np.linspace(Cmin, Cmax, 4)]
+	qui_c.set_ticklabels(qui_c_ticks)
+	########### Plot Histogram
+	h,x=np.histogram(Im,300,density=True)
+	qui_hist[0].set_xdata(x[1:])
+	qui_hist[0].set_ydata(h)
+	qui_th[0].set_xdata([th[0]['peak_th'],th[0]['peak_th']])
+	########### plot statistics
+	plot_time[0][0].set_ydata(plot_time_stat[:,0])
+	plot_time[1][0].set_ydata(plot_time_stat[:,1])
+	plot_time[2][0].set_ydata(plot_time_stat[:,2])
+	plot_time[3][0].set_ydata(plot_time_stat[:,3])
 	fig.canvas.draw()
 	if SAVE_PLOT:
 		imname=plot_folder+'img{:04d}.png'.format(n)
-		plt.savefig(imname,bbox_inches='tight',dpi=100)
+		fig.savefig(imname,bbox_inches='tight',dpi=100)
 
 # For plotting in Parralal process
 def visualization_worker(q):
-	global fig,ax,qui_c,Cmin,Cmax,alpha,th,plot_folder
+	global fig,ax,qui_c,SAVE_PLOT,plot_folder,img,qui
 	stop=True
 	while stop:
-		image,points,vectors,col,n,err,stop = q.get()
-		plot([image,points,vectors,col,n,err])
+		image,points,vectors,col,n,err,th,Im,plot_time_stat,Cmin,Cmax,alpha,stop = q.get()
+		plot([image,points,vectors,col,n,err,th,Im,plot_time_stat,Cmin,Cmax,alpha])
 
 def read_parameter_file(filename):
 	par=[{}]
@@ -216,69 +257,153 @@ def read_parameter_file(filename):
 			for line in f:
 				s=search('{varname:w} {varvalue:g}',line)
 				if (s != None): par[0][str(s['varname'])]=s['varvalue']
-			print('Parameter file read !')
+		#	print('Parameter file read !')
 	else:
 		print('WARNING: no parameter file exists. Taking default values! ')
 	return par
+	
+def setup_parameters(th):
+	# Convert to int several par (defaut is float)
+	th[0]['ROIxmin']=np.maximum(int(th[0]['ROIxmin'])-1,0)
+	th[0]['ROIxmax']=int(th[0]['ROIxmax'])
+	th[0]['ROIymin']=np.maximum(int(th[0]['ROIymin'])-1,0)
+	th[0]['ROIymax']=int(th[0]['ROIymax'])
+	th[0]['noise_size']=int(th[0]['noise_size'])
+	th[0]['peak_neigh']=int(th[0]['peak_neigh'])
+	return th
 
 def write_parameter_file(filename,th):
 	global version
 	f = open(filename, 'w')
 	f.write('# Parameter file generated by TracTrac Python v'+ version+'\n\n')
 	f.write('# Video loops \n')
-	f.write('vid_loop {}\n\n'.format(th[0]['vid_loop']))
+	f.write('vid_loop {} \t\t# Number of loops over frames to train motion model\n\n'.format(th[0]['vid_loop']))
 	f.write('# Image Processing\n')
-	f.write('ROIxmin {}\n'.format(th[0]['ROIxmin']))
-	f.write('ROIymin {}\n'.format(th[0]['ROIymin']))
-	f.write('ROIxmax {}\n'.format(th[0]['ROIxmax']))
-	f.write('ROIymax {}\n'.format(th[0]['ROIymax']))
-	f.write('BG {}\n'.format(th[0]['BG']))
-	f.write('BGspeed {}\n'.format(th[0]['BGspeed']))
-	f.write('noise {}\n'.format(th[0]['noise']))
-	f.write('noise_size {}\n\n'.format(th[0]['noise_size']))
+	f.write('ROIxmin {} \t\t# Region of interest for tracking (xmin) \n'.format(th[0]['ROIxmin']))
+	f.write('ROIymin {} \t\t# Region of interest for tracking (ymin) \n'.format(th[0]['ROIymin']))
+	f.write('ROIxmax {} \t\t# Region of interest for tracking (xmax) \n'.format(th[0]['ROIxmax']))
+	f.write('ROIymax {} \t\t# Region of interest for tracking (ymax) \n'.format(th[0]['ROIymax']))
+	f.write('BG {} \t\t# (0 or 1, default 0) Use background subtraction to remove static regions \n'.format(th[0]['BG']))
+	f.write('BGspeed {} \t\t# (0 to 1, default 0.01) adaptation speed of background \n'.format(th[0]['BGspeed']))
+	f.write('noise {} \t\t# (0 or 1, default 0) Use median filtering to remove noise \n'.format(th[0]['noise']))
+	f.write('noise_size {} \t\t# (3 or 11, default 3) Size of median kernel \n\n'.format(th[0]['noise_size']))
 	f.write('# Object Detection\n')
-	f.write('peak_th {}\n'.format(th[0]['peak_th']))
-	f.write('peak_th_auto {}\n'.format(th[0]['peak_th_auto']))
-	f.write('peak_neigh {}\n'.format(th[0]['peak_neigh']))
-	f.write('peak_conv {}\n'.format(th[0]['peak_conv']))
-	f.write('peak_conv_size {}\n'.format(th[0]['peak_conv_size']))
-	f.write('peak_subpix {}\n'.format(th[0]['peak_subpix']))
-	f.write('peak_minima {}\n\n'.format(th[0]['peak_minima']))
+	f.write('peak_th_auto {}\t# (0 or 1) Automatic object detection threshold \n'.format(th[0]['peak_th_auto']))
+	f.write('peak_th {} \t\t# (-inf to +inf) Manual object detection threshold \n'.format(th[0]['peak_th']))
+	f.write('peak_neigh {} \t\t# (1 to inf, default 1) Minimum distance between object \n'.format(th[0]['peak_neigh']))
+	f.write('peak_conv {} \t\t# Object detection kernel: 0 (none), 1 (Dif. of Gaussian), 2 (Log of Gaussian), default 1. \n'.format(th[0]['peak_conv']))
+	f.write('peak_conv_size {} \t# (0 to +inf) Object typical size (pixels) \n'.format(th[0]['peak_conv_size']))
+	f.write('peak_subpix {} \t# Subpixel precision method : 0 (quadratic), 1 (gaussian), default 1\n'.format(th[0]['peak_subpix']))
+	f.write('peak_minima {} \t# (0 or 1) : Track dark objects (instead of bright), default 0\n\n'.format(th[0]['peak_minima']))
 	f.write('# Motion Model \n')
-	f.write('motion {}\n'.format(th[0]['motion']))
-	f.write('motion_av {}\n'.format(th[0]['motion_av']))
-	f.write('motion_it {}\n'.format(th[0]['motion_it']))
-	f.write('filter {}\n'.format(th[0]['filter']))
-	f.write('filter_time {}\n'.format(th[0]['filter_time']))
-	f.write('filter_std {}\n'.format(th[0]['filter_std']))
+	f.write('motion {} \t\t# (0 or 1) : Use motion model to predict object displacements, default 1\n'.format(th[0]['motion']))
+	f.write('motion_av {} \t\t# (1 to +inf) : Number of neighboors over which model is averaged, default 5\n'.format(th[0]['motion_av']))
+	f.write('motion_it {} \t\t# (0 to +inf) : Iterations of motion model \n'.format(th[0]['motion_it']))
+	f.write('filter {} \t\t# (0 or 1) : Enable filtering of outliers \n'.format(th[0]['filter']))
+	f.write('filter_std {} \t# (-inf to +inf, default 1.5) : Threshold for outliers filtering (in nb of standard deviation of motion model error) \n'.format(th[0]['filter_std']))
+	f.write('filter_time {} \t# (0 to +inf, default 1) : Time speed of adaptation of outlier threshold \n\n'.format(th[0]['filter_time']))
+	f.write('# Plotting \n')
+	f.write('plot {} \t\t# (0 or 1) : Plot tracking process \n'.format(th[0]['plot']))
+	f.write('plot_image {} \t# Plot Raw (0), Convoluted (1) or Background (2) image \n'.format(th[0]['plot_image']))
+	f.write('plot_data {} \t\t# Color by velocity magnitude (0), motion model velocity (1), motion model error (2) \n'.format(th[0]['plot_data']))
+	f.write('plot_data_type {} \t# Vectors (1) or scatter (2) plot \n'.format(th[0]['plot_data']))
+	f.write('plot_cmin {} \t\t# (-inf,+inf) Minimum value of colorscale \n'.format(th[0]['plot_cmin']))
+	f.write('plot_cmax {} \t\t# (-inf,+inf) Maximum value of colorscale \n'.format(th[0]['plot_cmax']))
+	f.write('plot_alpha {} \t# (0,1) Transparency \n'.format(th[0]['plot_alpha']))
 	f.close()
 
 
 def set_default_parameter(th,w,h):
+	iscomplete=1
 # set missing parameters to default fvalues
-	if not('ROIxmin' in th[0]):th[0]['ROIxmin']=0
-	if not('ROIxmax' in th[0]):th[0]['ROIxmax']=w
-	if not('ROIymin' in th[0]):th[0]['ROIymin']=0
-	if not('ROIymax' in th[0]):th[0]['ROIymax']=h
-	if not('BG' in th[0]):th[0]['BG']=0
-	if not('BGspeed' in th[0]):th[0]['BGspeed']=0.02
-	if not('noise' in th[0]):th[0]['noise']=0
-	if not('noise_size' in th[0]):th[0]['noise_size']=3
-	if not('peak_th' in th[0]):th[0]['peak_th']=0.02
-	if not('peak_th_auto' in th[0]):th[0]['peak_th_auto']=1
-	if not('peak_neigh' in th[0]):th[0]['peak_neigh']=1
-	if not('peak_conv_size' in th[0]):th[0]['peak_conv_size']=10.
-	if not('peak_conv' in th[0]):th[0]['peak_conv']=1
-	if not('peak_subpix' in th[0]):th[0]['peak_subpix']=1
-	if not('peak_minima' in th[0]):th[0]['peak_minima']=0
-	if not('motion' in th[0]):th[0]['motion']=1
-	if not('motion_av' in th[0]):th[0]['motion_av']=10
-	if not('motion_it' in th[0]):th[0]['motion_it']=0
-	if not('filter' in th[0]):th[0]['filter']=1
-	if not('filter_time' in th[0]):th[0]['filter_time']=1.0
-	if not('filter_std' in th[0]):th[0]['filter_std']=1.5
-	if not('vid_loop' in th[0]):th[0]['vid_loop']=2
-	return th
+	if not('ROIxmin' in th[0]):
+		th[0]['ROIxmin']=0
+		iscomplete=0
+	if not('ROIxmax' in th[0]):
+		th[0]['ROIxmax']=w
+		iscomplete=0
+	if not('ROIymin' in th[0]):
+		th[0]['ROIymin']=0
+		iscomplete=0
+	if not('ROIymax' in th[0]):
+		th[0]['ROIymax']=h
+		iscomplete=0
+	if not('BG' in th[0]):
+		th[0]['BG']=0
+		iscomplete=0
+	if not('BGspeed' in th[0]):
+		th[0]['BGspeed']=0.01
+		iscomplete=0
+	if not('noise' in th[0]):
+		th[0]['noise']=0
+		iscomplete=0
+	if not('noise_size' in th[0]):
+		th[0]['noise_size']=3
+		iscomplete=0
+	if not('peak_th' in th[0]):
+		th[0]['peak_th']=0.02
+		iscomplete=0
+	if not('peak_th_auto' in th[0]):
+		th[0]['peak_th_auto']=1
+		iscomplete=0
+	if not('peak_neigh' in th[0]):
+		th[0]['peak_neigh']=1
+		iscomplete=0
+	if not('peak_conv_size' in th[0]):
+		th[0]['peak_conv_size']=2.
+		iscomplete=0
+	if not('peak_conv' in th[0]):
+		th[0]['peak_conv']=1
+		iscomplete=0
+	if not('peak_subpix' in th[0]):
+		th[0]['peak_subpix']=1
+		iscomplete=0
+	if not('peak_minima' in th[0]):
+		th[0]['peak_minima']=0
+		iscomplete=0
+	if not('motion' in th[0]):
+		th[0]['motion']=1
+		iscomplete=0
+	if not('motion_av' in th[0]):
+		th[0]['motion_av']=10
+		iscomplete=0
+	if not('motion_it' in th[0]):
+		th[0]['motion_it']=0
+		iscomplete=0
+	if not('filter' in th[0]):
+		th[0]['filter']=1
+		iscomplete=0
+	if not('filter_time' in th[0]):
+		th[0]['filter_time']=1.0
+		iscomplete=0
+	if not('filter_std' in th[0]):
+		th[0]['filter_std']=1.5
+		iscomplete=0
+	if not('vid_loop' in th[0]):
+		th[0]['vid_loop']=2
+		iscomplete=0
+	if not('plot' in th[0]):
+		th[0]['plot']=1
+		iscomplete=0
+	if not('plot_image' in th[0]):
+		th[0]['plot_image']=1
+		iscomplete=0
+	if not('plot_data' in th[0]):
+		th[0]['plot_data']=1
+		iscomplete=0
+	if not('plot_data_type' in th[0]):
+		th[0]['plot_data_type']=1
+		iscomplete=0
+	if not('plot_cmin' in th[0]):
+		th[0]['plot_cmin']=0
+		iscomplete=0
+	if not('plot_cmax' in th[0]):
+		th[0]['plot_cmax']=5
+		iscomplete=0
+	if not('plot_alpha' in th[0]):
+		th[0]['plot_alpha']=0.5
+		iscomplete=0
+	return th,iscomplete
 
 
 def times_f(a,b):
@@ -402,8 +527,11 @@ def maximaThresh(a,n,th):
 	# Subpixel Refinement Method
 	# 2nd order poly fit on the logarithm of diag of a
 	Dx=np.zeros(x.shape);Dy=np.zeros(x.shape);z=np.zeros(x.shape);
-	if method==1: [Dx,Dy,z]=subpix2nd(np.real(np.log(a-np.min(a)+1e-8)),x,y,n) #Gaussian
-	if method==0: [Dx,Dy,z]=subpix2nd(a,x,y,n) # Quadratic
+	# Take pencil length in accordance with peak_conv_size
+	#n_subpix=int(np.maximum(2,th[0]['peak_conv_size']))
+	n_subpix=2
+	if method==1: [Dx,Dy,z]=subpix2nd(np.real(np.log(a-np.min(a)+1e-8)),x,y,n_subpix) #Gaussian
+	if method==0: [Dx,Dy,z]=subpix2nd(a,x,y,n_subpix) # Quadratic
 	# Take only peaks that moved less than 0.5
 	idgood=np.where((np.abs(Dx)<0.5)&(np.abs(Dy)<0.5))
 	#print x,y,Dx,Dy
@@ -417,6 +545,7 @@ def subpix2nd(a,x,y,n):
 	#% np
 	npen=np.floor(n/2.)
 	pencil=np.arange(-npen,npen+1)
+	#pencil=np.array([-npen,0,npen])
 	X=np.matlib.repmat(pencil,np.size(x),1)
 	YH=np.zeros(X.shape)
 	YV=np.zeros(X.shape)
@@ -535,11 +664,11 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		I0=imProj(cv2.imread(flist[0],2),proj)
 		nFrames=len(flist)
 		height,width=I0.shape[:2]
-	elif filename=='0': # WebCam
+	elif (filename=='0')|(filename=='1'): # WebCam
 		flag_web=1
 		cv2.destroyAllWindows()
-		cap = cv2.VideoCapture(0)
-		nFrames=10000
+		cap = cv2.VideoCapture(int(filename))
+		nFrames=1000
 		I0=cap.read()[1]
 		I0=imProj(I0,proj)
 		height,width=I0.shape[:2]
@@ -572,19 +701,14 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 		parameter_filename=path+'/' + name[:-4]+'_par.txt'
 
 	if not th[0]: th = read_parameter_file(parameter_filename)
+	print(th)
 	# Set remaining Parameters and Save
-	
-	th = set_default_parameter(th,width,height)
-	write_parameter_file(parameter_filename,th)
+	th,iscomplete = set_default_parameter(th,width,height)
+	th = setup_parameters(th)
+	if (iscomplete==0):
+		write_parameter_file(parameter_filename,th) # Write new file if we were missing parameters
 
-	# Convert to int several par (defaut is float)
-	th[0]['ROIxmin']=np.maximum(int(th[0]['ROIxmin'])-1,0)
-	th[0]['ROIxmax']=int(th[0]['ROIxmax'])
-	th[0]['ROIymin']=np.maximum(int(th[0]['ROIymin'])-1,0)
-	th[0]['ROIymax']=int(th[0]['ROIymax'])
-	th[0]['noise_size']=int(th[0]['noise_size'])
-	th[0]['peak_neigh']=int(th[0]['peak_neigh'])
-
+	if flag_web: nFrames=int(nFrames*(1+th[0]['vid_loop']))
 #	if OUTPUT: write_parameter_file(parameter_filename,th)
 
 	if INFO:
@@ -660,12 +784,14 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 				cap.read()
 					
 	# Initialize Plot
-	if PLOT>0:
-		init_plot(I0f.shape[1],I0f.shape[0])
+	if th[0]['plot']>0:
+		init_plot(I0f.shape[1],I0f.shape[0],nFrames)
 		if PAR:
 			queue = mp.Queue()
 			p = mp.Process(target=visualization_worker, args=(queue,))
 			p.start()
+		plot_time_stat=np.zeros((nFrames,4))
+	
 	
 	 # Initialize Foreground
 	F0=I0f*mask-B
@@ -761,7 +887,12 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 #	for i in range(2,399):
 		#print 'top'
 		t = time.time()
-
+		# Read parameter files to get live change of parameters
+		th = read_parameter_file(parameter_filename)
+		th = setup_parameters(th)
+		# Replace threshold if auto and not shi and thomasi
+		if (th[0]['peak_th_auto']==1)&~(th[0]['peak_conv']==3):
+			th[0]['peak_th']=np.mean(F1f)+0.5*np.std(F1f)
 		# PRE processing steps #################################################
 		if flag_im:
 			I2 = cv2.imread(flist[N[i]],2)
@@ -848,6 +979,8 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 				#plt.quiver(C0[i_all,0],C0[i_all,1],Umotion[:,0],Umotion[:,1])
 	# TO CHECK wether dt should appear or not in errU
 				errU=np.maximum(-10.,np.log10(np.amax((np.abs((Umotion[i_all,:]-um)*dt[i-1])),1)))
+				# if any value of error is nan, reinitialize it
+				errU[np.isnan(errU)]=0
 				# Filtering outliers
 				ISgood=errU-errU_filt[i_all]<errU_th
 				# Evolution of threshold
@@ -868,6 +1001,7 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 				idbad=[]
 #					print id_traj
 #					break
+			if np.isnan(errU_th): errU_th=2
 			if len(errU)>0:
 				infos= '     | Motion Model it %02d - %d pts - log Err. Av/Max %1.1f/%1.1f (px) ' % (it,len(idgood),np.mean(errU),np.mean(errU+errU_th))
 			else:
@@ -916,29 +1050,48 @@ def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
 			
 			
 	# Plotting
+		
+		PLOT=th[0]['plot']
+		PLOT_DATA=th[0]['plot_data']
+		PLOT_TYPE=th[0]['plot_data_type']
+		PLOT_IMAGE=th[0]['plot_image']
 		if (PLOT>0):
+			if PLOT_IMAGE==0: Im=np.zeros(I1f.shape)
+			if PLOT_IMAGE==1: Im=I1f
+			if PLOT_IMAGE==2: Im=F2f
+			if PLOT_IMAGE==3: Im=B
+			Im=(Im-Im.min())/(Im.max()-Im.min()) # Normalisarion
+			Cmin=th[0]['plot_cmin']
+			Cmax=th[0]['plot_cmax']
+			alpha=th[0]['plot_alpha']
+			# statistics
+			plot_time_stat[N[i],0]=C1.shape[0]
+			plot_time_stat[N[i],1]=len(idgood)
+			plot_time_stat[N[i],2]=np.exp(np.mean(errU))
+			plot_time_stat[N[i],3]=np.nanmean(np.sqrt(np.sum(um[idgood,:]**2.,axis=1)))
 			if PAR==0:
 				if len(um)==0:
-					col = []; vel= [];
+					col = []; vel= np.array([]);
 				else:
-					if PLOT==1: col = np.sqrt(um[idgood,1]**2+um[idgood,0]**2); vel=um[idgood,:];
-					if PLOT==2: col = np.sqrt(Umotion[i_all,1]**2+Umotion[i_all,0]**2)[idgood]; vel=Umotion[i_all,:][idgood,:];
-					if PLOT==3: col = 10**errU_filt[i_all][idgood]; vel=Umotion[i_all,:][idgood,:];
-				if len(X1)>0: q=[I1f,X1[idgood,:],vel,col,N[i],np.mean(errU[idgood])]
-				if len(X1)==0: q=[I1f,[],vel,col,N[i],np.nan]
+					if PLOT_DATA==1: col = np.sqrt(um[idgood,1]**2+um[idgood,0]**2); vel=um[idgood,:];
+					if PLOT_DATA==2: col = np.sqrt(Umotion[i_all,1]**2+Umotion[i_all,0]**2)[idgood]; vel=Umotion[i_all,:][idgood,:];
+					if PLOT_DATA==3: col = 10**errU_filt[i_all][idgood]; vel=Umotion[i_all,:][idgood,:];
+					if PLOT_TYPE==2: vel[:]=0;
+				if len(X1)>0: q=[Im,X1[idgood,:],vel,col,N[i],np.mean(errU[idgood]),th,F2f,plot_time_stat,Cmin,Cmax,alpha]
+				if len(X1)==0: q=[Im,[],vel,col,N[i],np.nan,th,F2f,plot_time_stat,Cmin,Cmax,alpha]
 				plot(q)
 			elif (queue.empty()) or (SAVE_PLOT==1): # Only plot when queue is empty or when the save order is given
 				if len(um)==0:
-					col = []; vel= [];
+					col = []; vel= np.array([]);
 				else:
-					if PLOT==1: col = np.sqrt(um[idgood,1]**2+um[idgood,0]**2); vel=um[idgood,:];
-					if PLOT==2: col = np.sqrt(Umotion[i_all,1]**2+Umotion[i_all,0]**2)[idgood]; vel=Umotion[i_all,:][idgood,:];
-					if PLOT==3: col = 10**errU_filt[i_all][idgood]; vel=Umotion[i_all,:][idgood,:];
+					if PLOT_DATA==1: col = np.sqrt(um[idgood,1]**2+um[idgood,0]**2); vel=um[idgood,:];
+					if PLOT_DATA==2: col = np.sqrt(Umotion[i_all,1]**2+Umotion[i_all,0]**2)[idgood]; vel=Umotion[i_all,:][idgood,:];
+					if PLOT_DATA==3: col = 10**errU_filt[i_all][idgood]; vel=Umotion[i_all,:][idgood,:];
+					if PLOT_TYPE==2: vel[:]=0;
 				# the last argument send a stop signal to the worker
-				if len(X1)>0: q=[I1f,X1[idgood,:],vel,col,N[i],np.mean(errU[idgood]),not(i==len(N)-1)]
-				if len(X1)==0: q=[I1f,[],vel,col,N[i],np.nan,not(i==len(N)-1)]
-				queue.put(q)
-
+				if len(X1)>0: q=[Im,X1[idgood,:],vel,col,N[i],np.mean(errU[idgood]),th,F2f,plot_time_stat,Cmin,Cmax,alpha,not(i==len(N)-1)]
+				if len(X1)==0: q=[Im,[],vel,col,N[i],np.nan,th,F2f,plot_time_stat,Cmin,Cmax,alpha,not(i==len(N)-1)]
+				queue.put(q)	
 		# Update Background
 		if th[0]['BG']:
 			r2=B-I2f
@@ -1074,26 +1227,18 @@ if __name__ == "__main__":
 	parser.add_argument('-opp','--outputpp', help='Save Post Processing results in a file', action='store_true',default=False)
 	parser.add_argument('-s','--silent',help='No tracking infos', action='store_false',default=True)
 	# Plotting Options
-	parser.add_argument('-p','--plot', type=int,help='Live plot of tracking results', default=0)
 	parser.add_argument('-sp','--saveplot', help='Save plots in image sequence', action='store_true')
-	parser.add_argument('-cmin','--cmin', type=float, help='Minimum velocity (px/frame) for plotting',default=0.)
-	parser.add_argument('-cmax','--cmax', type=float, help='Maximum velocity (px/frame) for plotting',default=3.)
-	parser.add_argument('-ca','--calpha', type=float, help='Alpha value for arrows',default=1.0)
 	parser.add_argument('-par','--parallel', type=int,help='Visualization in a Parallel Thread', default=0)
 
 	args = parser.parse_args()
 	filename=args.file
 	tfile=args.tfile
 	mmfilename=args.motionmodelfile
-	PLOT=args.plot
 	AVERAGES=args.averages
 	OUTPUT=args.output
 	OUTPUT_PP=args.outputpp
 	INFO=args.silent
 	SAVE_PLOT=args.saveplot
-	Cmin=args.cmin
-	Cmax=args.cmax
-	alpha=args.calpha
 	PAR=args.parallel
 	th=[{}]
 #%%
