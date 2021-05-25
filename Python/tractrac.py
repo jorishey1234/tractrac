@@ -610,7 +610,6 @@ def run(**kwargs):
 	filename=kwargs.get('f','../Sample_videos/videotest.avi')	# Default Sample Video
 	tfile=kwargs.get('tf','') # File with time stamp of video frames
 	mmfilename=kwargs.get('mmf','')
-	PLOT=kwargs.get('p',0)
 	OUTPUT=kwargs.get('o',0)
 	INFO=kwargs.get('s',0)
 	SAVE_PLOT=kwargs.get('sp',0)
@@ -618,11 +617,11 @@ def run(**kwargs):
 	alpha=kwargs.get('calpha',0.5)
 	th=kwargs.get('th',[{}])
 	PAR=kwargs.get('par',0)
-	Pts,th=tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT)
+	Pts,th=tractrac(filename,th,mmfilename,tfile,OUTPUT)
 	return Pts,th
 
 # Main tracking FUNCTION
-def tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT):
+def tractrac(filename,th,mmfilename,tfile,OUTPUT):
 	global SAVE_PLOT,Cmin,Cmax,alpha,INFO,PAR,version,plot_folder
 
 #%%
@@ -1242,5 +1241,5 @@ if __name__ == "__main__":
 	PAR=args.parallel
 	th=[{}]
 #%%
-	Pts,th=tractrac(filename,th,mmfilename,tfile,PLOT,OUTPUT)
+	Pts,th=tractrac(filename,th,mmfilename,tfile,OUTPUT)
 
