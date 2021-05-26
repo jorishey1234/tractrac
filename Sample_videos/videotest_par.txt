@@ -34,7 +34,7 @@ filter_time 1.0 	# (0 to +inf, default 1) : Time speed of adaptation of outlier 
 plot 1 		# (0 or 1) : Plot tracking process 
 plot_image 1 	# Plot Raw (0), Convoluted (1) or Background (2) image 
 plot_data 1 		# Color by velocity magnitude (0), motion model velocity (1), motion model error (2) 
-plot_data_type 1 	# Vectors (1) or scatter (2) plot 
+plot_data_type 2 	# Vectors (1) or scatter (2) plot 
 plot_cmin 0 		# (-inf,+inf) Minimum value of colorscale 
-plot_cmax 5 		# (-inf,+inf) Maximum value of colorscale 
-plot_alpha 0.5 	# (0,1) Transparency 
+plot_cmax 1 		# (-inf,+inf) Maximum value of colorscale 
+plot_alpha 1.0 	# (0,1) Transparency 
