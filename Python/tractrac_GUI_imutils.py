@@ -255,7 +255,7 @@ class Controls(QtWidgets.QWidget):
 		self.add_radio("BG",layout='0',title='Background subtraction',checked=self.BG)
 		self.add_slider("BGspeed",mini=0,maxi=100,inte=10,value=2,title="Adaptation speed",layout='0')
 		self.add_radio("noise",layout='0',title='Median noise filter',checked=self.noise)
-		self.add_slider("noise_size",mini=1,maxi=100,inte=10,value=1,title="Median filter size",layout='0')
+		self.add_slider("noise_size",mini=0,maxi=10,inte=1,value=1,title="Median filter size",layout='0')
 		self.add_slider("vid_loop",mini=1,maxi=10,inte=0,value=1,title="Video loops",layout='0')
 
 		self.add_label("detect",title="___ Object Detection ___",layout='1')
@@ -426,7 +426,7 @@ class Controls(QtWidgets.QWidget):
 		self.BGspeed_label.setText("Adaptation speed: {:1.2}".format(self.BGspeed))
 
 	def set_noise_size(self,r):
-		self.noise_size=r
+		self.noise_size=int(2*r+1)
 		self.noise_size_label.setText("Median Filter size: {:d}".format(self.noise_size))
 
 	def set_peak_conv_size(self,r):
@@ -562,9 +562,13 @@ class CanvasWrapper:
 		self.arrows= visuals.Arrow(pos=vel,arrows=vel.reshape(-1,6),
 								color=col,
 								parent=self.view_top.scene,
-								width=5, connect='segments', method='gl', antialias=True,
-								arrow_type='triangle_30', arrow_size=5)
+								width=1, connect='segments', method='gl', antialias=True,
+								arrow_type='triangle_30', arrow_size=1)
 		
+		pos=np.array([[0,0,-1]]).reshape(-1,3)
+		self.scatter = visuals.Markers()
+		self.scatter.set_data(pos, edge_width=0, face_color=(1, 1, 1, .5), size=5, symbol='o')
+
 		#self.view_top.camera.PanZoomCamera(parent=self.view_top.scene, aspect=1, name='panzoom')
 		self.view_top.camera = "panzoom"
 		#self.view_top.camera = cameras.base_camera.BaseCamera(aspect=1,interactive=False)
@@ -592,8 +596,13 @@ class CanvasWrapper:
 		#print("Updating data...")
 #		self.line.set_data(new_data_dict["line"])
 		self.image.set_data(new_data_dict["image"])
-		self.arrows.set_data(pos=new_data_dict["vel"],arrows=new_data_dict["vel"].reshape(-1,6),
+# 		
+# 		self.arrows.set_data(pos=new_data_dict["vel"],arrows=new_data_dict["vel"].reshape(-1,6),
+# 											 color=new_data_dict["color"])
+
+		self.scatter.set_data(pos=new_data_dict["vel"][:2,:],
 											 color=new_data_dict["color"])
+		
 		self.canvas.update()
 
 class MyMainWindow(QtWidgets.QMainWindow):
