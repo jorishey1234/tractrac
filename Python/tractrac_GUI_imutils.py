@@ -701,7 +701,11 @@ class tractrac(QtCore.QObject):
 
 	def run(self):
 		# Rewind video
-		cap.set(cv2.CAP_PROP_POS_FRAMES,0)# Rewind
+		# Rewind video
+		if (imutils.is_cv2()) & (not flag_im):
+			cap.set(cv2.cv.CAP_PROP_POS_FRAMES,0);
+		elif (imutils.is_cv3()) & (not flag_im):
+			cap.set(cv2.CAP_PROP_POS_FRAMES,0);
 		
 		Pts=[]
 		dt=DTFRAMES
