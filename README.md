@@ -24,9 +24,12 @@ Contact: joris.heyman@univ-rennes1.fr
 # User guide Python2 and Python3
 1) Installation
 Download and extract the Git repository. Make sure you have a working installation of python2.7 or python3.xx. Install the extra packages scipy, opencv-python, imutils, h5py, parse via the terminal :
-> pip3 install scipy opencv-python imutils h5py parse --user
+> pip3 install scipy opencv-python imutils h5py parse vispy pyqt5 --user
 
-2) In the Python folder, run test case, plot and save average velocities with
+2) In the Python folder, run test case in GUI, plot and save average velocities with
+> python3 tractrac_GUI.py -a
+
+2.1) In the Python folder, run test case in command line, plot and save average velocities with
 > python3 tractrac.py -a
 
 3) Get help on available commands with :
