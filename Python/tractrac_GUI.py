@@ -279,7 +279,7 @@ class Controls(QtWidgets.QWidget):
 		self.add_chooser("plot_image",IMAGE,layout='0',title='Image type')
 		self.add_chooser("plot_data",DATA,layout='0',title='Data type')
 #		self.add_slider("plot_alpha",mini=0,maxi=10,inte=1,value=10,title="Transparency",layout='0')
-		self.add_slider("rescale",mini=0,maxi=100,inte=10,value=10,title="Arrow Scale",layout='0')
+		self.add_slider("rescale",mini=0,maxi=1000,inte=100,value=100,title="Arrow Scale",layout='0')
 		
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
