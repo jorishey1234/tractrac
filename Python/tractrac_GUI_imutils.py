@@ -597,11 +597,11 @@ class CanvasWrapper:
 #		self.line.set_data(new_data_dict["line"])
 		self.image.set_data(new_data_dict["image"])
 # 		
-# 		self.arrows.set_data(pos=new_data_dict["vel"],arrows=new_data_dict["vel"].reshape(-1,6),
-# 											 color=new_data_dict["color"])
-
-		self.scatter.set_data(pos=new_data_dict["vel"][:2,:],
+		self.arrows.set_data(pos=new_data_dict["vel"],arrows=new_data_dict["vel"].reshape(-1,6),
 											 color=new_data_dict["color"])
+
+# 		self.scatter.set_data(pos=new_data_dict["vel"][:2,:],
+# 											face_color=new_data_dict["color"])
 		
 		self.canvas.update()
 
