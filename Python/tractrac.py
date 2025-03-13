@@ -97,7 +97,7 @@ def Propagate_MotionModel_KdTree(C,Xm,Um,Em,Xm_old,Um_old,Em_old,th):
 	tXref=scp.cKDTree(Xref)
 
 	# Get firsts nn'th neighboors of query points
-	nn=np.minimum(np.minimum(np.int8(th[0]['motion_av']),C.shape[0]),Xref.shape[0])
+	nn=np.minimum(np.minimum(np.int16(th[0]['motion_av']),C.shape[0]),Xref.shape[0])
 	#print nn
 	distance,neighboors=tXref.query(C,k=nn)
 
