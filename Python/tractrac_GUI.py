@@ -63,6 +63,14 @@ version= '3.0 (22/05/2021) | J. Heyman'
 # Parameter file now called *_par.txt
 # Fixed some difference between Matlab and Python version, some diff remain notaob_detectiony in the error thresholds
 
+from PyQt5 import QtWidgets, QtCore
+
+from vispy.scene import SceneCanvas, visuals
+from vispy.app import use_app
+
+from scipy.fft import fft, ifft,fftfreq
+
+from scipy.ndimage import gaussian_filter
 import time
 import glob
 import numpy as np
@@ -88,19 +96,10 @@ import h5py # For saving binary format
 #def run(**kwargs):
 #% Tractrac Toolbox
 import time
-import argparse
 
 import numpy as np
 np.bool = np.bool_
 
-from PyQt5 import QtWidgets, QtCore
-
-from vispy.scene import SceneCanvas, visuals
-from vispy.app import use_app
-
-from scipy.fft import fft, ifft,fftfreq
-
-from scipy.ndimage import gaussian_filter
 
 from tractrac_lib import * 
 
@@ -125,9 +124,10 @@ AVERAGES=args.averages
 OUTPUT=args.output
 OUTPUT_PP=args.outputpp
 INFO=args.silent
+INFO=True
 SAVE_PLOT=args.saveplot
 
-PARAMETERS=["vid_loop","ROIxmin",'ROIymin','ROIxmax','ROIymax','BG','BGspeed','noise','noise_size','peak_th_auto','peak_th'
+PARAMETERS=["output","vid_loop","ROIxmin",'ROIymin','ROIxmax','ROIymax','BG','BGspeed','noise','noise_size','peak_th_auto','peak_th'
 ,'peak_neigh','peak_conv','peak_conv_size','peak_minima','peak_subpix','motion','motion_av','motion_it','filter'
 ,'filter_std','motion','filter_time','plot','plot_image','plot_data','plot_data_type','plot_alpha','rescale']
 
@@ -159,7 +159,7 @@ CONVOLUTION= ["None","Diff of Gaussian","Log of Gaussian"]
 SUBPIX= ["Quadratic","Gaussian"]
 IMAGE=["None","Raw","Convoluted","Background"]
 DATA=["None","Velocity","Motion model","Model Error"]
-
+OUTPUT=['None','Averages','Tracks (ASCII)','Tracks (HDF5)','All']
 
 # Read Projective transform file if it exist
 if os.path.isfile(path+'/projection.txt'):
@@ -222,6 +222,7 @@ class Controls(QtWidgets.QWidget):
 		self.set_default_parameter()
 		# if exist, read parameter file
 		self.read_parameter_file()
+		
 		# if exist, write parameter file with replaced default values
 		self.write_parameter_file()
 		
@@ -238,8 +239,10 @@ class Controls(QtWidgets.QWidget):
 		self.add_label("title",title=r"___ TracTrac GUI___\n")
 		
 		self.add_radio("start",title="Start Tracking",checked=0)
-		
+		self.add_button("default",title="Default Parameters")
+		self.add_button("load",title="Load Parameters")
 		self.add_button("save",title="Save Parameters")
+		self.add_chooser("output",OUTPUT,title='Save Tracking',layout='0')
 # 		self.quit_bt = QtWidgets.QPushButton('Quit', self)
 # 		layout.addWidget(self.quit_bt)
 		
@@ -247,35 +250,35 @@ class Controls(QtWidgets.QWidget):
 # 		self.pause_chooser.addItems(SIMULATION_CHOICES)
 # 		layout.addWidget(self.pause_chooser)
 		# RoixMin max : sliders
-		self.add_label("imProc",title="___ Image Processing ___",layout='0')
-		self.add_slider("ROIxmin",mini=0,maxi=100,inte=10,value=0,title="ROI xmin",layout='0')
-		self.add_slider("ROIxmax",mini=0,maxi=100,inte=10,value=100,title="ROI xmax",layout='0')
-		self.add_slider("ROIymin",mini=0,maxi=100,inte=10,value=0,title="ROI ymin",layout='0')
-		self.add_slider("ROIymax",mini=0,maxi=100,inte=10,value=100,title="ROI ymax",layout='0')
+		self.add_label("imProc",title=r"\n ___ Image Processing ___",layout='0')
+		self.add_slider("ROIxmin",mini=0,maxi=100,inte=10,value=int(self.ROIxmin/width*100),title="ROI xmin",layout='0')
+		self.add_slider("ROIxmax",mini=0,maxi=100,inte=10,value=int(self.ROIxmax/width*100),title="ROI xmax",layout='0')
+		self.add_slider("ROIymin",mini=0,maxi=100,inte=10,value=int(self.ROIymin/height*100),title="ROI ymin",layout='0')
+		self.add_slider("ROIymax",mini=0,maxi=100,inte=10,value=int(self.ROIymax/height*100),title="ROI ymax",layout='0')
 		self.add_radio("BG",layout='0',title='Background subtraction',checked=self.BG)
-		self.add_slider("BGspeed",mini=0,maxi=100,inte=10,value=2,title="Adaptation speed",layout='0')
+		self.add_slider("BGspeed",mini=0,maxi=100,inte=10,value=int(self.BGspeed*1000),title="Adaptation speed",layout='0')
 		self.add_radio("noise",layout='0',title='Median noise filter',checked=self.noise)
-		self.add_slider("noise_size",mini=0,maxi=10,inte=1,value=1,title="Median filter size",layout='0')
-		self.add_slider("vid_loop",mini=1,maxi=10,inte=0,value=1,title="Video loops",layout='0')
+		self.add_slider("noise_size",mini=0,maxi=10,inte=1,value=int((self.noise_size-1)/2),title="Median filter size",layout='0')
+		self.add_slider("vid_loop",mini=1,maxi=10,inte=0,value=int(self.vid_loop),title="Video loops",layout='0')
 
-		self.add_label("detect",title="___ Object Detection ___",layout='1')
+		self.add_label("detect",title=r" ___ Object Detection ___",layout='1')
 		self.add_radio("peak_minima",layout='1',title='Track minima',checked=self.peak_minima)
 		self.add_chooser("peak_conv",CONVOLUTION,title='Convolution kernel',layout='1')
-		self.add_slider("peak_conv_size",mini=0,maxi=400,inte=40,value=22,title="Kernel size",layout='1')
+		self.add_slider("peak_conv_size",mini=0,maxi=400,inte=40,value=int(self.peak_conv_size*10),title="Kernel size",layout='1')
 		self.add_radio("peak_th_auto",layout='1',title='Automatic thresholding',checked=self.peak_th_auto)
-		self.add_slider("peak_th",mini=-100,maxi=100,inte=20,value=2,title="Threshold value",layout='1')
-		self.add_slider("peak_neigh",mini=1,maxi=20,inte=1,value=1,title="Min distance",layout='1')
+		self.add_slider("peak_th",mini=-100,maxi=100,inte=20,value=int(self.peak_th*100),title="Threshold value",layout='1')
+		self.add_slider("peak_neigh",mini=1,maxi=20,inte=1,value=int(self.peak_neigh),title="Min distance",layout='1')
 		self.add_chooser("peak_subpix",SUBPIX,layout='1',title='Subpixel method')
 
-		self.add_label("track",title="___ Object Tracking ___",layout='1')
+		self.add_label("track",title=r"\n ___ Object Tracking ___",layout='1')
 		self.add_radio("motion",title="Motion model",layout='1',checked=self.motion)
-		self.add_slider("motion_av",mini=1,maxi=100,inte=10,value=5,title="Spatial average",layout='1')
-		self.add_slider("motion_it",mini=1,maxi=20,inte=5,value=1,title="Iterations",layout='1')
+		self.add_slider("motion_av",mini=1,maxi=100,inte=10,value=int(self.motion_av),title="Spatial average",layout='1')
+		self.add_slider("motion_it",mini=1,maxi=20,inte=5,value=int(self.motion_it),title="Iterations",layout='1')
 		self.add_radio("filter",title="Filter outliers",layout='1',checked=self.filter)
-		self.add_slider("filter_std",mini=0,maxi=40,inte=1,value=20,title="Outlier threshold",layout='1')
-		self.add_slider("filter_time",mini=0,maxi=100,inte=10,value=1,title="Threshold frame correlation",layout='1')
+		self.add_slider("filter_std",mini=0,maxi=40,inte=1,value=int(self.filter_std*10),title="Outlier threshold",layout='1')
+		self.add_slider("filter_time",mini=0,maxi=100,inte=10,value=int(self.filter_time),title="Threshold frame correlation",layout='1')
 
-		self.add_label("pllabel",title="___ Plot and output ___",layout='0')
+		self.add_label("pllabel",title=r"\n ___ Plot and output ___",layout='0')
 #		self.add_radio("plot",title="Plot",layout='0')
 		self.add_chooser("plot_image",IMAGE,layout='0',title='Image type')
 		self.add_chooser("plot_data",DATA,layout='0',title='Data type')
@@ -295,6 +298,10 @@ class Controls(QtWidgets.QWidget):
 			#	print('Parameter file read !')
 		else:
 			print('WARNING: no parameter file exists. Taking default values! ')
+	
+	def read_parameter_file_labels(self):
+		self.read_parameter_file()
+		self.set_labels()
 
 	def write_parameter_file(self):
 		f = open(parameter_filename, 'w')
@@ -336,16 +343,17 @@ class Controls(QtWidgets.QWidget):
 
 	def set_default_parameter(self):
 		# Sine flow parameters
+		self.output = 0
 		self.vid_loop = 0
-		self.ROIxmin = 0
+		self.ROIxmin = 0	
 		self.ROIymin= 0
 		self.ROIxmax = width
-		self.ROIymax=height
-		self.BG=1
-		self.BGspeed=0.05
-		self.noise=1
-		self.noise_size=20
-		self.peak_th_auto=60
+		self.ROIymax= height
+		self.BG=0
+		self.BGspeed=0.01
+		self.noise=0
+		self.noise_size=3
+		self.peak_th_auto=1
 		self.peak_th=0.02
 		self.peak_neigh=1
 		self.peak_conv=1
@@ -362,9 +370,32 @@ class Controls(QtWidgets.QWidget):
 		self.plot=1
 		self.plot_data=1
 		self.plot_alpha=1
-		self.plot_image=0
+		self.plot_image=1
 		self.plot_data_type=1
 		self.rescale=0.1
+		
+		
+	def set_default_parameter_labels(self):
+		self.set_default_parameter()
+		self.set_labels()
+
+	def set_labels(self):
+		self.ROIxmin_label.setText("ROI xmin: {:d}".format(self.ROIxmin))
+		self.ROIxmax_label.setText("ROI xmmax: {:d}".format(self.ROIxmax))
+		self.ROIymin_label.setText("ROI ymin: {:d}".format(self.ROIymin))
+		self.ROIymax_label.setText("ROI xmin: {:d}".format(self.ROIymax))
+		self.BGspeed_label.setText("Adaptation speed: {:1.3f}".format(self.BGspeed))
+		self.noise_size_label.setText("Median Filter size: {:d}".format(self.noise_size))
+		self.peak_conv_size_label.setText("Convolution Filter size: {:1.1f}".format(self.peak_conv_size))
+		self.peak_th_label.setText("Threshold value: {:1.2f}".format(self.peak_th))
+		self.peak_neigh_label.setText("Min distance: {:d}".format(self.peak_neigh))
+		self.motion_av_label.setText("Spatial Average: {:d}".format(self.motion_av))
+		self.rescale_label.setText("Arrow scale: {:1.1f}".format(self.rescale))
+		self.motion_it_label.setText("Model Iterations: {:d}".format(self.motion_it))
+		self.filter_std_label.setText(r"Outlier threshold: {:1.1f}".format(self.filter_std))
+		self.filter_time_label.setText("Threshold lag time: {:d}".format(self.filter_time))
+		self.vid_loop_label.setText("Video Loops: {:d}".format(self.vid_loop))
+		
 	
 	def add_label(self,variable,title='label',layout='0'):
 		print('self.'+variable+' =  QtWidgets.QLabel("'+title+'")')
@@ -383,6 +414,7 @@ class Controls(QtWidgets.QWidget):
 		exec('self.'+variable+'_sl.setTickPosition(QtWidgets.QSlider.TicksAbove)')
 		exec('self.'+variable+'_sl.setTickInterval('+"{:d}".format(inte)+')')
 		exec('self.layout'+layout+'.addWidget(self.'+variable+'_sl)')
+		exec('self.set_'+variable+'({:d})'.format(value))
 
 	def add_chooser(self,variable,CHOICES,title="title",layout='0'):
 		exec('self.'+variable+'_label = QtWidgets.QLabel("'+title+'")')
@@ -411,7 +443,7 @@ class Controls(QtWidgets.QWidget):
 
 	def set_ROIxmax(self,r):
 		self.ROIxmax=int(np.maximum(int(width*r/100),self.ROIxmin+10))
-		self.ROIxmax_label.setText("ROI xmmax: {:d}".format(self.ROIxmax))
+		self.ROIxmax_label.setText("ROI xmax: {:d}".format(self.ROIxmax))
 
 	def set_ROIymin(self,r):
 		self.ROIymin=int(np.minimum(int(height*r/100),self.ROIymax-10))
@@ -419,11 +451,11 @@ class Controls(QtWidgets.QWidget):
 
 	def set_ROIymax(self,r):
 		self.ROIymax=int(np.maximum(int(height*r/100),self.ROIymin+10))
-		self.ROIymax_label.setText("ROI xmin: {:d}".format(self.ROIymax))
+		self.ROIymax_label.setText("ROI ymax: {:d}".format(self.ROIymax))
 
 	def set_BGspeed(self,r):
-		self.BGspeed=r/100.
-		self.BGspeed_label.setText("Adaptation speed: {:1.2}".format(self.BGspeed))
+		self.BGspeed=r/1000.
+		self.BGspeed_label.setText("Adaptation speed: {:1.3f}".format(self.BGspeed))
 
 	def set_noise_size(self,r):
 		self.noise_size=int(2*r+1)
@@ -490,6 +522,12 @@ class Controls(QtWidgets.QWidget):
 			self.motion=0
 			print(0)
 
+	def set_BG(self):
+		if self.BG_radio.isChecked():
+			self.BG=1
+		else:
+			self.BG=0
+			
 	def set_filter(self):
 		if self.filter_radio.isChecked():
 			self.filter=1
@@ -507,14 +545,17 @@ class Controls(QtWidgets.QWidget):
 			self.plot_image = 3
 		print(_mode,self.plot_image)
 		
-
+	def set_output(self, _mode: str):
+		for k in range(len(OUTPUT)):
+			if _mode==OUTPUT[k]:
+				self.output = k
 		
 	def set_plot_data(self, _mode: str):
 		if _mode=="None":
 			self.plot_data = 0
 		if _mode=="Velocity":
 			self.plot_data = 1
-		if _mode=="Motion Model":
+		if _mode=="Motion model":
 			self.plot_data = 2
 		if _mode=="Model Error":
 			self.plot_data = 3
@@ -551,7 +592,7 @@ class CanvasWrapper:
 			image_data,
 			texture_format="auto",
 			clim=[-1,1],
-			cmap=COLORMAP_CHOICES[0],
+				cmap='gray',
 			parent=self.view_top.scene,
 			interpolation='bilinear'
 		)
@@ -637,13 +678,16 @@ class MyMainWindow(QtWidgets.QMainWindow):
 # 		self._controls.lmin_sl.valueChanged.connect(self._controls.set_lmin)
 # 		self._controls.lmax_sl.valueChanged.connect(self._controls.set_lmax)
 # 		self._controls.fps_sl.valueChanged.connect(self._controls.set_fps)
+		self._controls.default_bt.clicked.connect(self._controls.set_default_parameter_labels)
 		self._controls.save_bt.clicked.connect(self._controls.write_parameter_file)
+		self._controls.load_bt.clicked.connect(self._controls.read_parameter_file_labels)
 # 		#self._controls.quit_bt.clicked.connect(self._controls.set_quit)
 # 		self._controls.rescale_bt.clicked.connect(self.set_rescale)
 		self._controls.ROIxmin_sl.valueChanged.connect(self._controls.set_ROIxmin)
 		self._controls.ROIxmax_sl.valueChanged.connect(self._controls.set_ROIxmax)
 		self._controls.ROIymin_sl.valueChanged.connect(self._controls.set_ROIymin)
 		self._controls.ROIymax_sl.valueChanged.connect(self._controls.set_ROIymax)
+		
 		self._controls.BGspeed_sl.valueChanged.connect(self._controls.set_BGspeed)
 		self._controls.noise_size_sl.valueChanged.connect(self._controls.set_noise_size)
 		self._controls.peak_th_sl.valueChanged.connect(self._controls.set_peak_th)
@@ -656,11 +700,13 @@ class MyMainWindow(QtWidgets.QMainWindow):
 		self._controls.vid_loop_sl.valueChanged.connect(self._controls.set_vid_loop)
 		self._controls.rescale_sl.valueChanged.connect(self._controls.set_rescale)
 		# Choosers
+		self._controls.output_chooser.currentTextChanged.connect(self._controls.set_output)
 		self._controls.plot_image_chooser.currentTextChanged.connect(self._controls.set_plot_image)
 		self._controls.plot_data_chooser.currentTextChanged.connect(self._controls.set_plot_data)
 		self._controls.peak_conv_chooser.currentTextChanged.connect(self._controls.set_peak_conv)
 		
 		self._controls.peak_th_auto_radio.clicked.connect(self._controls.set_peak_th_auto)
+		self._controls.BG_radio.clicked.connect(self._controls.set_BG)
 		self._controls.motion_radio.clicked.connect(self._controls.set_motion)
 		self._controls.filter_radio.clicked.connect(self._controls.set_filter)
 		self._controls.peak_minima_radio.clicked.connect(self._controls.set_peak_minima)
@@ -701,11 +747,15 @@ class tractrac(QtCore.QObject):
 
 	def run(self):
 		# Rewind video
+		
 		# Rewind video
 		if (imutils.is_cv2()) & (not flag_im):
 			cap.set(cv2.cv.CAP_PROP_POS_FRAMES,0);
 		elif (imutils.is_cv3()) & (not flag_im):
 			cap.set(cv2.CAP_PROP_POS_FRAMES,0);
+		else:
+			cap.set(cv2.CAP_PROP_POS_FRAMES,0);
+			
 		
 		Pts=[]
 		dt=DTFRAMES
@@ -835,7 +885,7 @@ class tractrac(QtCore.QObject):
 				print('! The Provided Motion Model File will be used !')
 	# Initialize averages
 				
-		if AVERAGES:
+		if True:
 			Av_U=np.zeros(F0f.shape)
 			Av_V=np.zeros(F0f.shape)
 			Av_N=np.zeros(F0f.shape)
@@ -896,6 +946,7 @@ class tractrac(QtCore.QObject):
 				print('Webcam Framerate: {:1.1f} fps'.format(1./dt[i-1]))
 			
 			I2=imProj(I2,proj)
+			
 			I2f=imProc(I2,th)
 			F2 = I2f*mask-B
 	
@@ -1020,11 +1071,11 @@ class tractrac(QtCore.QObject):
 				A=A+np.nan
 				
 			# Save Frame ID Position Speed Acceleration
-			if (OUTPUT>0) & (i>=len(N)-nFrames+2) :
+			if (th[0]['output']>1) & (i>=len(N)-nFrames+2) :
 				newPts=np.vstack(((np.zeros(len(idgood))+N[i]-np.sign(dt[i-1])).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T,A[idgood,:].T, Umotion[idgood,:].T,errU[idgood].T)).T
 				Pts.append(newPts) # We use list for dynamic resizing of arrays
 	
-			if AVERAGES & (i>=len(N)-nFrames+2) :
+			if th[0]['output']==1 & (i>=len(N)-nFrames+2) :
 				xi=np.uint16(X1[idgood,:])
 				Av_U[xi[:,1],xi[:,0]]=Av_U[xi[:,1],xi[:,0]]+um[idgood,0]
 				Av_V[xi[:,1],xi[:,0]]=Av_V[xi[:,1],xi[:,0]]+um[idgood,1]
@@ -1048,6 +1099,8 @@ class tractrac(QtCore.QObject):
 			alpha=th[0]['plot_alpha']
 			
 			
+			if PLOT_DATA==0:
+				vm=[]
 			if PLOT_DATA==1:
 				vel=-np.ones((len(idgood)*2,3))
 				vel[::2,:2]=X1[idgood,:]
@@ -1059,12 +1112,11 @@ class tractrac(QtCore.QObject):
 				vel[::2,:2]=X1
 				vel[1::2,:2]=X1+Umotion[i_all,:]*th[0]['rescale']
 				vm=np.sqrt(np.sum(Umotion[i_all,:]**2,axis=1))
-				col=np.ones((Xmot.shape[0]*2,4))
+				col=np.ones((X1.shape[0]*2,4))
 			if (PLOT_DATA==3):
 				vel=-np.ones((X1.shape[0]*2,3))
 				vel[::2,:2]=X1
 				vel[1::2,:2]=X1+Umotion[i_all,:]*th[0]['rescale']
-				vm=np.sqrt(np.sum(Umotion[i_all,:]**2,axis=1))
 				col=np.ones((X1.shape[0]*2,4))
 				vm=errU
 			
@@ -1131,7 +1183,96 @@ class tractrac(QtCore.QObject):
 		############################ END of Main LOOPPP
 		# local parameters
 		#print(Np*p,self._tmax,self._tcorr)
-		print('done')
+		print("="*(65))
+		print('Tracking completed')
+		print("="*(65))
+		
+		# Save
+		if (th[0]['output']==2)&(len(Pts)>0):
+			# Transform Pts into a numpy array
+			Pts=np.concatenate(Pts)
+			if not os.path.isdir(path+'/TracTrac/'):
+				os.mkdir(path+'/TracTrac/')
+				
+			if flag_im:
+				output_filename=path+'/TracTrac/' + name[-3:]+'seq_track.txt' # If list of image, default name different
+			else:
+				output_filename=path+'/TracTrac/' + name[:-4]+'_track.txt'
+			if INFO:
+				print('Saving to ASCII file '+ output_filename +'...')
+			head='TracTrac v'+version +' \n Parameters: '+str(th[0])+'\n Frame ID x y Vx Vy Ax Ay Vx(prediction) Vy(prediction) Error(prediction)'
+			#newPts=np.vstack(((np.zeros(len(idgood))+n-1).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T, Umotion[idgood,:].T,a[idgood,:].T,errU[idgood].T)).T
+			np.savetxt(output_filename,Pts,fmt=('%d','%d','%.3f','%.3f','%.5f','%.5f','%.4f','%.4f','%.4f','%.4f','%.3f'),delimiter=' ', newline='\n', header=head, comments='# ')
+			if INFO:
+				print('Raw tracking data saved as ASCII file!')
+
+		# SAVING HDF5 ####################
+		if (th[0]['output']==3)&(len(Pts)>0):
+			# Transform Pts into a numpy array
+			Pts=np.concatenate(Pts)
+			print(Pts.shape)
+			if not os.path.isdir(path+'/TracTrac/'):
+				os.mkdir(path+'/TracTrac/')
+			if flag_im:
+				output_filename=path+'/TracTrac/' + name[-3:]+'seq_track.hdf5' # If list of image, default name different
+			else:
+				output_filename=path+'/TracTrac/' + name[:-4]+'_track.hdf5'
+			if INFO:
+				print('Saving to binary file '+ output_filename +'...')
+			f = h5py.File(output_filename,'w')
+			f.attrs['version']='HDF5 file made with TracTrac Python v'+version
+			f.attrs['date']=time.strftime("%d/%m/%Y")
+			f.attrs['nFrames']=nFrames
+			f.attrs['size']=I0f.shape
+			for items in th[0].keys(): f.attrs['th:'+items]=th[0][items]
+			f.create_dataset("Frame", data=np.uint16(Pts[:,0]))
+			f.create_dataset("Id", data=np.uint16(Pts[:,1]))
+			f.create_dataset("x", data=np.float32(Pts[:,2:4]))
+			f.create_dataset("u", data=np.float32(Pts[:,4:6]))
+			f.create_dataset("a", data=np.float32(Pts[:,6:8]))
+			f.create_dataset("u_motion", data=np.float32(Pts[:,8:10]))
+			f.create_dataset("err_motion", data=np.uint32(Pts[:,10]))
+			f.close()
+
+			if INFO:
+				print('Raw tracking data saved as HDF5 file!')
+
+		if (th[0]['output']==1)&(np.any(Av_N>0)):
+			if not os.path.isdir(path+'/TracTrac/'):
+				os.mkdir(path+'/TracTrac/')
+			if flag_im:
+				output_filename=path+'/TracTrac/' + name[-3:]+'seq' # If list of image, default name different
+			else:
+				output_filename=path+'/TracTrac/' + name[:-4]
+			Av_N[Av_N==0]=np.nan
+			Ui=Av_U/Av_N
+			cv2.imwrite(output_filename+'_Ux_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+															
+			Ui=Av_V/Av_N
+			cv2.imwrite(output_filename+'_Uy_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+															
+			Ui=np.sqrt(Av_U**2.+Av_V**2.)/Av_N
+			cv2.imwrite(output_filename+'_Umag_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+			Ui=Av_N
+			cv2.imwrite(output_filename+'_N_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
+															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
+
+			if INFO:
+				print('Averages saved as tiff files!')
+		#	if OUTPUT_PP:
+		#		#pdb.set_trace()
+		#		output_filename=path+'/' + name[:-4]+'_post.txt'
+		#		print 'PostProcessing will be saved to '+ output_filename +'...'
+		#		post_save(output_filename,Pts,th)
+		#		print 'Saved !'
+		#		print "="*(65)
+		print("="*(65))
+
+
+
 
 if __name__ == "__main__":
 	app = use_app("pyqt5")

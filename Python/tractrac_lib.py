@@ -19,7 +19,7 @@ def Propagate_MotionModel_KdTree(C,Xm,Um,Em,Xm_old,Um_old,Em_old,th):
 	tXref=scp.cKDTree(Xref)
 
 	# Get firsts nn'th neighboors of query points
-	nn=np.minimum(np.minimum(np.int8(th[0]['motion_av']),C.shape[0]),Xref.shape[0])
+	nn=np.minimum(np.minimum(np.uint16(th[0]['motion_av']),C.shape[0]),Xref.shape[0])
 	#print nn
 	distance,neighboors=tXref.query(C,k=nn)
 
@@ -391,7 +391,7 @@ def imProc(I,th):
 	if I.dtype == 'uint8': Im = np.float32(I)/256. # ALways convert to float Images
 	if I.dtype == 'uint16': Im = np.float32(I)/2.**16 # ALways convert to float
 	# Crop
-	ROIymin=np.minimum(0,th[0]['ROIymin'])
+	ROIymin=np.maximum(0,th[0]['ROIymin'])
 	ROIymax=np.minimum(I.shape[0],th[0]['ROIymax'])
 	ROIxmin=np.maximum(0,th[0]['ROIxmin'])
 	ROIxmax=np.minimum(I.shape[1],th[0]['ROIxmax'])
