@@ -20,6 +20,7 @@ The article is available in <a href="https://perso.univ-rennes1.fr/joris.heyman/
 
 Contact: joris.heyman@univ-rennes1.fr 
 
+![image](https://github.com/user-attachments/assets/0792a55b-85c2-4821-b44e-53fa27194f78)
 
 # User guide Python2 and Python3
 1) Installation
@@ -28,6 +29,9 @@ Download and extract the Git repository. Make sure you have a working installati
 
 2) In the Python folder, run test case in GUI, plot and save average velocities with
 > python3 tractrac_GUI.py -a
+
+In case you have the error : "Could not load the Qt platform plugin "xcb" in "/home/joris/venvpython3.12/lib/python3.12/site-packages/cv2/qt/plugins" even though it was found."
+Delete the file libqxcb.so in cv2 plugin : "rm /home/joris/venvpython3.12/lib/python3.12/site-packages/cv2/qt/plugins/platforms/libqxcb.so"
 
 2.1) In the Python folder, run test case in command line, plot and save average velocities with
 > python3 tractrac.py -a
