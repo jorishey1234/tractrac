@@ -65,7 +65,7 @@ version= '3.0 (22/05/2021) | J. Heyman'
 
 from PyQt5 import QtWidgets, QtCore
 
-from vispy.scene import SceneCanvas, visuals
+from vispy.scene import SceneCanvas, visuals, STTransform
 from vispy.app import use_app
 
 from scipy.fft import fft, ifft,fftfreq
@@ -74,6 +74,7 @@ from scipy.ndimage import gaussian_filter
 import time
 import glob
 import numpy as np
+import re
 import numpy.matlib
 import scipy.spatial.distance
 import scipy.spatial as scp
@@ -129,7 +130,10 @@ SAVE_PLOT=args.saveplot
 
 PARAMETERS=["output","vid_loop","ROIxmin",'ROIymin','ROIxmax','ROIymax','BG','BGspeed','noise','noise_size','peak_th_auto','peak_th'
 ,'peak_neigh','peak_conv','peak_conv_size','peak_minima','peak_subpix','motion','motion_av','motion_it','filter'
-,'filter_std','motion','filter_time','plot','plot_image','plot_data','plot_data_type','plot_alpha','rescale']
+,'filter_std','motion','filter_time','plot','plot_image','plot_data','plot_data_type','plot_alpha','rescale'
+,'first_frame','last_frame','skip_frames','resolution','fps']
+# parameters stored as float (all others are integers)
+FLOAT_PARAMETERS=['resolution','fps','BGspeed','peak_th','peak_conv_size','filter_std','plot_alpha','rescale']
 
 
 # Read Video Stream or image sequence
@@ -176,7 +180,7 @@ if flag_im: # Image list
 	height,width=I0.shape[:2]
 elif (filename=='0')|(filename=='1'): # WebCam
 	flag_web=1
-	cv2.destroyAllWindows()
+	#cv2.destroyAllWindows()
 	cap = cv2.VideoCapture(int(filename))
 	nFrames=1000
 	I0=cap.read()[1]
@@ -184,7 +188,6 @@ elif (filename=='0')|(filename=='1'): # WebCam
 	I0=imProj(I0,proj)
 	height,width=I0.shape[:2]
 else:	# Video
-	cv2.destroyAllWindows()
 	cap = cv2.VideoCapture(filename)
 	I0=cap.read()[1]
 	I0=imProj(I0,proj)
@@ -214,6 +217,60 @@ if os.path.isfile(tfile):
 IMAGE_SHAPE = (height, width)  # (height, width)
 CANVAS_SIZE = (width*3,height*4)  # (width, height)
 
+# Separate capture used only to preview frames in the GUI (never touches the tracking capture)
+if (not flag_im) and (not flag_web):
+	cap_preview = cv2.VideoCapture(filename)
+
+def read_frame(n):
+	"""Read frame n (projected, not processed) for display. Returns None if it cannot be read."""
+	n = int(max(0, min(n, nFrames-1)))
+	if flag_im:
+		I = cv2.imread(flist[n], 2)
+	elif flag_web:
+		return None
+	else:
+		cap_preview.set(cv2.CAP_PROP_POS_FRAMES, n)
+		I = cap_preview.read()[1]
+	if I is None:
+		return None
+	return imProj(I, proj)
+
+def to_gray01(I):
+	"""Convert an image (gray or color, any depth) to float32 gray in [0,1] for display."""
+	I = np.asarray(I)
+	if I.ndim > 2:
+		I = cv2.cvtColor(I, cv2.COLOR_BGRA2GRAY if I.shape[2] == 4 else cv2.COLOR_BGR2GRAY)
+	I = I.astype(np.float32)
+	lo, hi = I.min(), I.max()
+	if hi > lo:
+		return (I-lo)/(hi-lo)
+	return np.zeros(I.shape, dtype=np.float32)
+
+def save_calibrated_tiff(filename, A, vunit):
+	"""Save a 2D float array as a 16-bit TIFF whose ImageDescription carries an ImageJ calibration
+	(value = c0 + c1*pixel, unit vunit): ImageJ then shows real values and units when opening the file.
+	Pixel 0 is kept for 'no data' (NaN), valid values use 1...65535."""
+	from PIL import Image, TiffImagePlugin
+	A = np.asarray(A, dtype=np.float64)
+	ok = np.isfinite(A)
+	if ok.any():
+		vmin, vmax = float(A[ok].min()), float(A[ok].max())
+	else:
+		vmin, vmax = 0.0, 0.0
+	if vmax > vmin:
+		c1 = (vmax-vmin)/65534.
+		P = np.round((np.where(ok, A, vmin)-vmin)/c1)+1
+	else:
+		c1 = 1.0
+		P = np.ones(A.shape)
+	P[~ok] = 0
+	c0 = vmin-c1 # value of pixel p = c0 + c1*p  (p=1 -> vmin, p=65535 -> vmax)
+	desc = ("ImageJ=1.53t\nimages=1\ncf=0\nc0={!r}\nc1={!r}\nvunit={}\nvmin={!r}\nvmax={!r}\nmin=1.0\nmax=65535.0\n"
+			.format(c0, c1, vunit, vmin, vmax))
+	ifd = TiffImagePlugin.ImageFileDirectory_v2()
+	ifd[270] = desc # ImageDescription
+	Image.fromarray(np.uint16(P)).save(filename, tiffinfo=ifd)
+
 class Controls(QtWidgets.QWidget):
 	def __init__(self, parent=None):
 		super().__init__(parent)
@@ -239,6 +296,7 @@ class Controls(QtWidgets.QWidget):
 		self.add_label("title",title=r"___ TracTrac GUI___\n")
 		
 		self.add_radio("start",title="Start Tracking",checked=0)
+		self.add_button("reset",title="Reset")
 		self.add_button("default",title="Default Parameters")
 		self.add_button("load",title="Load Parameters")
 		self.add_button("save",title="Save Parameters")
@@ -251,15 +309,22 @@ class Controls(QtWidgets.QWidget):
 # 		layout.addWidget(self.pause_chooser)
 		# RoixMin max : sliders
 		self.add_label("imProc",title=r"\n ___ Image Processing ___",layout='0')
-		self.add_slider("ROIxmin",mini=0,maxi=100,inte=10,value=int(self.ROIxmin/width*100),title="ROI xmin",layout='0')
-		self.add_slider("ROIxmax",mini=0,maxi=100,inte=10,value=int(self.ROIxmax/width*100),title="ROI xmax",layout='0')
-		self.add_slider("ROIymin",mini=0,maxi=100,inte=10,value=int(self.ROIymin/height*100),title="ROI ymin",layout='0')
-		self.add_slider("ROIymax",mini=0,maxi=100,inte=10,value=int(self.ROIymax/height*100),title="ROI ymax",layout='0')
+		self.add_slider("ROIxmin",mini=0,maxi=width,inte=max(1,width//10),value=self.ROIxmin,title="ROI xmin",layout='0')
+		self.add_slider("ROIxmax",mini=0,maxi=width,inte=max(1,width//10),value=self.ROIxmax,title="ROI xmax",layout='0')
+		self.add_slider("ROIymin",mini=0,maxi=height,inte=max(1,height//10),value=self.ROIymin,title="ROI ymin",layout='0')
+		self.add_slider("ROIymax",mini=0,maxi=height,inte=max(1,height//10),value=self.ROIymax,title="ROI ymax",layout='0')
+		self.add_slider("first_frame",mini=0,maxi=nFrames-1,inte=max(1,(nFrames-1)//10),value=int(self.first_frame),title="First frame",layout='0')
+		self.add_slider("last_frame",mini=0,maxi=nFrames-1,inte=max(1,(nFrames-1)//10),value=int(self.last_frame),title="Last frame",layout='0')
+		self.add_slider("skip_frames",mini=0,maxi=20,inte=1,value=int(self.skip_frames),title="Skip frames",layout='0')
+		if flag_web: # frame range / skipping make no sense for a live webcam
+			self.first_frame_sl.setEnabled(False)
+			self.last_frame_sl.setEnabled(False)
+			self.skip_frames_sl.setEnabled(False)
 		self.add_radio("BG",layout='0',title='Background subtraction',checked=self.BG)
 		self.add_slider("BGspeed",mini=0,maxi=100,inte=10,value=int(self.BGspeed*1000),title="Adaptation speed",layout='0')
 		self.add_radio("noise",layout='0',title='Median noise filter',checked=self.noise)
 		self.add_slider("noise_size",mini=0,maxi=10,inte=1,value=int((self.noise_size-1)/2),title="Median filter size",layout='0')
-		self.add_slider("vid_loop",mini=1,maxi=10,inte=0,value=int(self.vid_loop),title="Video loops",layout='0')
+		self.add_slider("vid_loop",mini=0,maxi=10,inte=0,value=int(self.vid_loop),title="Video loops",layout='0')
 
 		self.add_label("detect",title=r" ___ Object Detection ___",layout='1')
 		self.add_radio("peak_minima",layout='1',title='Track minima',checked=self.peak_minima)
@@ -278,26 +343,50 @@ class Controls(QtWidgets.QWidget):
 		self.add_slider("filter_std",mini=0,maxi=40,inte=1,value=int(self.filter_std*10),title="Outlier threshold",layout='1')
 		self.add_slider("filter_time",mini=0,maxi=100,inte=10,value=int(self.filter_time),title="Threshold frame correlation",layout='1')
 
+		self.add_label("scale",title=r"\n ___ Scaling of average maps ___",layout='1')
+		self.add_spinbox("resolution",title="Resolution (length per pixel)",layout='1',value=self.resolution)
+		self.add_spinbox("fps",title="FPS (frames per second)",layout='1',value=self.fps)
+
 		self.add_label("pllabel",title=r"\n ___ Plot and output ___",layout='0')
 #		self.add_radio("plot",title="Plot",layout='0')
 		self.add_chooser("plot_image",IMAGE,layout='0',title='Image type')
 		self.add_chooser("plot_data",DATA,layout='0',title='Data type')
 #		self.add_slider("plot_alpha",mini=0,maxi=10,inte=1,value=10,title="Transparency",layout='0')
-		self.add_slider("rescale",mini=0,maxi=1000,inte=100,value=100,title="Arrow Scale",layout='0')
+		self.add_slider("rescale",mini=0,maxi=1000,inte=100,value=int(round(self.rescale*10)),title="Arrow Scale",layout='0')
 		
+		self.set_labels() # texts and widgets (sliders, buttons, choosers) <- parameter values
 		self.layout.addStretch(1)
 		self.setLayout(self.layout)
 	
 	def read_parameter_file(self):
 		if os.path.exists(parameter_filename):
+			pattern=re.compile(r'^\s*([A-Za-z_]\w*)\s+([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)')
 			with open(parameter_filename) as f:
 				for line in f:
-					s=search('{varname:w} {varvalue:g}',line)
-					if (s != None): 
-						exec("%s = %d" % ('self.'+str(s['varname']),s['varvalue']))
-			#	print('Parameter file read !')
+					if line.lstrip().startswith('#'):
+						continue
+					m=pattern.match(line)
+					if (m is not None) and (m.group(1) in PARAMETERS):
+						v=float(m.group(2))
+						setattr(self,m.group(1),v if m.group(1) in FLOAT_PARAMETERS else int(round(v)))
 		else:
 			print('WARNING: no parameter file exists. Taking default values! ')
+		self.check_roi()
+		self.check_frame_range()
+		if not self.resolution>0: self.resolution=1.0
+		if not self.fps>0: self.fps=1.0
+
+	def check_roi(self):
+		# keep the ROI inside the image, with at least 10 pixels
+		self.ROIxmin=int(max(0,min(self.ROIxmin,width-10)))
+		self.ROIxmax=int(min(width,max(self.ROIxmax,self.ROIxmin+10)))
+		self.ROIymin=int(max(0,min(self.ROIymin,height-10)))
+		self.ROIymax=int(min(height,max(self.ROIymax,self.ROIymin+10)))
+
+	def check_frame_range(self):
+		# keep 0 <= first <= last-2 <= nFrames-3 (tracking needs at least 3 frames)
+		self.first_frame=int(max(0,min(self.first_frame,nFrames-3)))
+		self.last_frame=int(min(max(self.last_frame,self.first_frame+2),nFrames-1))
 	
 	def read_parameter_file_labels(self):
 		self.read_parameter_file()
@@ -308,6 +397,13 @@ class Controls(QtWidgets.QWidget):
 		f.write('# Parameter file generated by TracTrac Python v'+ version+'\n\n')
 		f.write('# Video loops \n')
 		f.write('vid_loop {} \t\t# Number of loops over frames to train motion model\n\n'.format(self.vid_loop))
+		f.write('# Frames to track\n')
+		f.write('first_frame {} \t\t# First frame to track \n'.format(self.first_frame))
+		f.write('last_frame {} \t\t# Last frame to track \n'.format(self.last_frame))
+		f.write('skip_frames {} \t\t# Number of frames skipped between two tracked frames (0: all frames are tracked) \n\n'.format(self.skip_frames))
+		f.write('# Scaling of average images\n')
+		f.write('resolution {} \t\t# Image resolution: physical length of one pixel (length/px), default 1 \n'.format(self.resolution))
+		f.write('fps {} \t\t# Frames per second of the video, default 1 \n\n'.format(self.fps))
 		f.write('# Image Processing\n')
 		f.write('ROIxmin {} \t\t# Region of interest for tracking (xmin) \n'.format(self.ROIxmin))
 		f.write('ROIymin {} \t\t# Region of interest for tracking (ymin) \n'.format(self.ROIymin))
@@ -336,8 +432,9 @@ class Controls(QtWidgets.QWidget):
 		f.write('plot {} \t\t# (0 or 1) : Plot tracking process \n'.format(self.plot))
 		f.write('plot_image {} \t# Plot Raw (0), Convoluted (1) or Background (2) image \n'.format(self.plot_image))
 		f.write('plot_data {} \t\t# Color by velocity magnitude (0), motion model velocity (1), motion model error (2) \n'.format(self.plot_data))
-		f.write('plot_data_type {} \t# Vectors (1) or scatter (2) plot \n'.format(self.plot_data))
+		f.write('plot_data_type {} \t# Vectors (1) or scatter (2) plot \n'.format(self.plot_data_type))
 		f.write('plot_alpha {} \t# (0,1) Transparency \n'.format(self.plot_alpha))
+		f.write('rescale {} \t\t# Arrow scale \n'.format(self.rescale))
 		f.close()
 	
 
@@ -345,6 +442,11 @@ class Controls(QtWidgets.QWidget):
 		# Sine flow parameters
 		self.output = 0
 		self.vid_loop = 0
+		self.first_frame = 0
+		self.last_frame = nFrames-1
+		self.skip_frames = 0
+		self.resolution = 1.0
+		self.fps = 1.0
 		self.ROIxmin = 0	
 		self.ROIymin= 0
 		self.ROIxmax = width
@@ -372,7 +474,7 @@ class Controls(QtWidgets.QWidget):
 		self.plot_alpha=1
 		self.plot_image=1
 		self.plot_data_type=1
-		self.rescale=0.1
+		self.rescale=10.0
 		
 		
 	def set_default_parameter_labels(self):
@@ -380,10 +482,14 @@ class Controls(QtWidgets.QWidget):
 		self.set_labels()
 
 	def set_labels(self):
+		# Texts
 		self.ROIxmin_label.setText("ROI xmin: {:d}".format(self.ROIxmin))
-		self.ROIxmax_label.setText("ROI xmmax: {:d}".format(self.ROIxmax))
+		self.ROIxmax_label.setText("ROI xmax: {:d}".format(self.ROIxmax))
 		self.ROIymin_label.setText("ROI ymin: {:d}".format(self.ROIymin))
-		self.ROIymax_label.setText("ROI xmin: {:d}".format(self.ROIymax))
+		self.ROIymax_label.setText("ROI ymax: {:d}".format(self.ROIymax))
+		self.first_frame_label.setText("First frame: {:d}".format(self.first_frame))
+		self.last_frame_label.setText("Last frame: {:d}".format(self.last_frame))
+		self.skip_frames_label.setText("Skip frames: {:d}".format(self.skip_frames))
 		self.BGspeed_label.setText("Adaptation speed: {:1.3f}".format(self.BGspeed))
 		self.noise_size_label.setText("Median Filter size: {:d}".format(self.noise_size))
 		self.peak_conv_size_label.setText("Convolution Filter size: {:1.1f}".format(self.peak_conv_size))
@@ -395,8 +501,36 @@ class Controls(QtWidgets.QWidget):
 		self.filter_std_label.setText(r"Outlier threshold: {:1.1f}".format(self.filter_std))
 		self.filter_time_label.setText("Threshold lag time: {:d}".format(self.filter_time))
 		self.vid_loop_label.setText("Video Loops: {:d}".format(self.vid_loop))
-		
-	
+
+		# Widgets follow the parameters (signals blocked: the exact parameter values are never overwritten
+		# by the rounded slider positions)
+		sliders={'ROIxmin':self.ROIxmin,'ROIxmax':self.ROIxmax,'ROIymin':self.ROIymin,'ROIymax':self.ROIymax,
+				'first_frame':self.first_frame,'last_frame':self.last_frame,'skip_frames':self.skip_frames,
+				'BGspeed':self.BGspeed*1000,'noise_size':(self.noise_size-1)/2,'vid_loop':self.vid_loop,
+				'peak_conv_size':self.peak_conv_size*10,'peak_th':self.peak_th*100,'peak_neigh':self.peak_neigh,
+				'motion_av':self.motion_av,'motion_it':self.motion_it,'filter_std':self.filter_std*10,
+				'filter_time':self.filter_time,'rescale':self.rescale*10}
+		for name,v in sliders.items():
+			self._set_slider_silently(getattr(self,name+'_sl'),round(v))
+		for name in ('BG','noise','peak_minima','peak_th_auto','motion','filter'):
+			r=getattr(self,name+'_radio')
+			r.blockSignals(True)
+			r.setChecked(bool(getattr(self,name)))
+			r.blockSignals(False)
+		for name in ('resolution','fps'):
+			sb=getattr(self,name+'_sb')
+			sb.blockSignals(True)
+			sb.setValue(float(getattr(self,name)))
+			sb.blockSignals(False)
+		# chooser index <- parameter value (see the set_* functions for the inverse mapping)
+		choosers={'output':self.output,'peak_conv':self.peak_conv,'peak_subpix':self.peak_subpix-1,
+				'plot_image':self.plot_image,'plot_data':self.plot_data}
+		for name,idx in choosers.items():
+			c=getattr(self,name+'_chooser')
+			c.blockSignals(True)
+			c.setCurrentIndex(int(min(max(idx,0),c.count()-1)))
+			c.blockSignals(False)
+
 	def add_label(self,variable,title='label',layout='0'):
 		print('self.'+variable+' =  QtWidgets.QLabel("'+title+'")')
 		exec('self.'+variable+' =  QtWidgets.QLabel("'+title+'")')
@@ -414,7 +548,23 @@ class Controls(QtWidgets.QWidget):
 		exec('self.'+variable+'_sl.setTickPosition(QtWidgets.QSlider.TicksAbove)')
 		exec('self.'+variable+'_sl.setTickInterval('+"{:d}".format(inte)+')')
 		exec('self.layout'+layout+'.addWidget(self.'+variable+'_sl)')
-		exec('self.set_'+variable+'({:d})'.format(value))
+
+	def add_spinbox(self,variable,title="Title",layout='0',value=1.0,decimals=6,mini=1e-9,maxi=1e9):
+		setattr(self,variable+'_label',QtWidgets.QLabel(title))
+		getattr(self,'layout'+layout).addWidget(getattr(self,variable+'_label'))
+		sb=QtWidgets.QDoubleSpinBox()
+		sb.setDecimals(decimals)
+		sb.setRange(mini,maxi)
+		sb.setKeyboardTracking(False) # update when editing is finished, not at each key stroke
+		sb.setValue(float(value))
+		setattr(self,variable+'_sb',sb)
+		getattr(self,'layout'+layout).addWidget(sb)
+
+	def set_resolution(self,v):
+		self.resolution=float(v)
+
+	def set_fps(self,v):
+		self.fps=float(v)
 
 	def add_chooser(self,variable,CHOICES,title="title",layout='0'):
 		exec('self.'+variable+'_label = QtWidgets.QLabel("'+title+'")')
@@ -438,20 +588,49 @@ class Controls(QtWidgets.QWidget):
 		exec('self.layout'+layout+'.addWidget(self.'+variable+'_bt)')
 		
 	def set_ROIxmin(self,r):
-		self.ROIxmin=int(np.minimum(int(width*r/100),self.ROIxmax-10))
+		self.ROIxmin=int(max(0,min(r,self.ROIxmax-10)))
+		if self.ROIxmin!=r: # clamped: move the handle back
+			self._set_slider_silently(self.ROIxmin_sl,self.ROIxmin)
 		self.ROIxmin_label.setText("ROI xmin: {:d}".format(self.ROIxmin))
 
 	def set_ROIxmax(self,r):
-		self.ROIxmax=int(np.maximum(int(width*r/100),self.ROIxmin+10))
+		self.ROIxmax=int(min(width,max(r,self.ROIxmin+10)))
+		if self.ROIxmax!=r:
+			self._set_slider_silently(self.ROIxmax_sl,self.ROIxmax)
 		self.ROIxmax_label.setText("ROI xmax: {:d}".format(self.ROIxmax))
 
 	def set_ROIymin(self,r):
-		self.ROIymin=int(np.minimum(int(height*r/100),self.ROIymax-10))
+		self.ROIymin=int(max(0,min(r,self.ROIymax-10)))
+		if self.ROIymin!=r:
+			self._set_slider_silently(self.ROIymin_sl,self.ROIymin)
 		self.ROIymin_label.setText("ROI ymin: {:d}".format(self.ROIymin))
 
 	def set_ROIymax(self,r):
-		self.ROIymax=int(np.maximum(int(height*r/100),self.ROIymin+10))
+		self.ROIymax=int(min(height,max(r,self.ROIymin+10)))
+		if self.ROIymax!=r:
+			self._set_slider_silently(self.ROIymax_sl,self.ROIymax)
 		self.ROIymax_label.setText("ROI ymax: {:d}".format(self.ROIymax))
+
+	def _set_slider_silently(self,sl,v):
+		sl.blockSignals(True)
+		sl.setValue(int(v))
+		sl.blockSignals(False)
+
+	def set_first_frame(self,r):
+		self.first_frame=int(max(0,min(r,self.last_frame-2)))
+		if self.first_frame!=r: # clamped: move the handle back
+			self._set_slider_silently(self.first_frame_sl,self.first_frame)
+		self.first_frame_label.setText("First frame: {:d}".format(self.first_frame))
+
+	def set_last_frame(self,r):
+		self.last_frame=int(min(max(r,self.first_frame+2),nFrames-1))
+		if self.last_frame!=r:
+			self._set_slider_silently(self.last_frame_sl,self.last_frame)
+		self.last_frame_label.setText("Last frame: {:d}".format(self.last_frame))
+
+	def set_skip_frames(self,r):
+		self.skip_frames=int(max(0,r))
+		self.skip_frames_label.setText("Skip frames: {:d}".format(self.skip_frames))
 
 	def set_BGspeed(self,r):
 		self.BGspeed=r/1000.
@@ -500,6 +679,9 @@ class Controls(QtWidgets.QWidget):
 	def set_vid_loop(self,r):
 		self.vid_loop=r
 		self.vid_loop_label.setText("Video Loops: {:d}".format(self.vid_loop))
+
+	def set_noise(self):
+		self.noise=1 if self.noise_radio.isChecked() else 0
 
 	def set_peak_th_auto(self):
 		if self.peak_th_auto_radio.isChecked():
@@ -583,15 +765,17 @@ class CanvasWrapper:
 #		self.grid = self.canvas.central_widget.add_grid()
 	
 		self.view_top = self.canvas.central_widget.add_view()
+		self._full_size = None # size of the canvas widget before it is fitted to the ROI
+		self._offset = (0,0)   # translation applied to image/arrows if the tracked image is cropped to the ROI
 
 #		self.view_top = self.grid.add_view(0, 0, bgcolor='cyan')
 		#image_data = np.zeros((h,w))
-		image_data = I0
+		image_data = to_gray01(I0)
 		
 		self.image = visuals.Image(
 			image_data,
 			texture_format="auto",
-			clim=[-1,1],
+			clim=[0,1],
 				cmap='gray',
 			parent=self.view_top.scene,
 			interpolation='bilinear'
@@ -606,6 +790,15 @@ class CanvasWrapper:
 								width=1, connect='segments', method='gl', antialias=True,
 								arrow_type='triangle_30', arrow_size=1)
 		
+		# ROI guide lines (2 vertical + 2 horizontal, spanning the whole image), drawn on top
+		self.roi_lines = visuals.Line(pos=np.full((8,3),-2,dtype=np.float32),
+								color=(1,0.85,0,1),
+								parent=self.view_top.scene,
+								width=1, connect='segments', method='gl')
+
+		self.roi_lines.set_gl_state('translucent', depth_test=False)
+		self.arrows.visible = False # nothing to show before tracking starts
+
 		pos=np.array([[0,0,-1]]).reshape(-1,3)
 		self.scatter = visuals.Markers()
 		self.scatter.set_data(pos, edge_width=0, face_color=(1, 1, 1, .5), size=5, symbol='o')
@@ -633,10 +826,69 @@ class CanvasWrapper:
 # 		print(f"Changing line color to {color}")
 # 		self.line.set_data(color=color)
 
+	def show_image(self, img):
+		self.image.set_data(img)
+		self.canvas.update()
+
+	def fit_to_roi(self, xmin, xmax, ymin, ymax):
+		# Resize the canvas widget to the ROI aspect ratio (largest size fitting in the current area)
+		# and zoom the camera on the ROI
+		native = self.canvas.native
+		if self._full_size is None:
+			self._full_size = (native.width(), native.height())
+		cw, ch = self._full_size
+		rw, rh = max(1, xmax-xmin), max(1, ymax-ymin)
+		s = min(cw/rw, ch/rh)
+		native.setFixedSize(max(1, int(rw*s)), max(1, int(rh*s)))
+		self.view_top.camera.set_range(x=(xmin, xmax), y=(ymin, ymax), margin=0)
+		self.roi_lines.visible = False
+		self.canvas.update()
+
+	def reset_view(self):
+		# Back to the initial state: full image, canvas free to expand, no arrows
+		native = self.canvas.native
+		if self._full_size is not None: # give back the size it had before being fitted to the ROI
+			native.setFixedSize(*self._full_size)
+		native.setMinimumSize(0, 0)
+		native.setMaximumSize(16777215, 16777215) # then let the layout manage it again
+		native.updateGeometry()
+		parent = native.parentWidget()
+		if (parent is not None) and (parent.layout() is not None):
+			parent.layout().invalidate()
+			parent.layout().activate()
+		self._full_size = None
+		self.view_top.camera.set_range(x=(0, IMAGE_SHAPE[1]), y=(0, IMAGE_SHAPE[0]), margin=0)
+		self.arrows.visible = False
+		self._set_offset((0, 0))
+		self.roi_lines.visible = True
+		self.canvas.update()
+
+	def _set_offset(self, off):
+		if tuple(off) != tuple(self._offset):
+			self._offset = tuple(off)
+			tr = STTransform(translate=(off[0], off[1], 0))
+			self.image.transform = tr
+			self.arrows.transform = tr
+
+	def update_roi_lines(self, xmin, xmax, ymin, ymax):
+		w, h = IMAGE_SHAPE[1], IMAGE_SHAPE[0]
+		z = -2 # in front of image (z=0) and arrows (z=-1)
+		pos = np.array([[xmin,0,z],[xmin,h,z],
+						[xmax,0,z],[xmax,h,z],
+						[0,ymin,z],[w,ymin,z],
+						[0,ymax,z],[w,ymax,z]],dtype=np.float32)
+		self.roi_lines.set_data(pos=pos)
+		self.canvas.update()
+
 	def update_data(self, new_data_dict):
 		#print("Updating data...")
 #		self.line.set_data(new_data_dict["line"])
-		self.image.set_data(new_data_dict["image"])
+		img = new_data_dict["image"]
+		# if the tracked image is cropped to the ROI, positions are ROI-local: shift them back
+		roi = new_data_dict.get("roi", (0, 0))
+		self._set_offset((0, 0) if tuple(np.shape(img)[:2]) == tuple(IMAGE_SHAPE) else roi)
+		self.arrows.visible = True
+		self.image.set_data(img)
 # 		
 		self.arrows.set_data(pos=new_data_dict["vel"],arrows=new_data_dict["vel"].reshape(-1,6),
 											 color=new_data_dict["color"])
@@ -663,7 +915,70 @@ class MyMainWindow(QtWidgets.QMainWindow):
 		central_widget.setLayout(main_layout)
 		self.setCentralWidget(central_widget)
 
+		self.tracking_running = False # set by the tracking thread
+		self._fitted = False          # True when the canvas is fitted to the ROI
+		self._preview_n = self._controls.first_frame
+		# debounce: only read the video once the slider has stopped moving for a moment
+		self._preview_timer = QtCore.QTimer(self)
+		self._preview_timer.setSingleShot(True)
+		self._preview_timer.setInterval(120)
+		self._preview_timer.timeout.connect(self.preview_frame)
+
 		self._connect_controls()
+		self.refresh_view()
+
+	def update_roi_lines(self, *args):
+		c = self._controls
+		self._canvas_wrapper.update_roi_lines(c.ROIxmin, c.ROIxmax, c.ROIymin, c.ROIymax)
+
+	def preview_frame(self):
+		if self.tracking_running or self._fitted: # do not overwrite the tracking display
+			return
+		I = read_frame(self._preview_n)
+		if I is not None:
+			self._canvas_wrapper.show_image(to_gray01(I))
+
+	def on_first_frame_changed(self, *args):
+		self._preview_n = self._controls.first_frame
+		self._preview_timer.start()
+
+	def on_last_frame_changed(self, *args):
+		self._preview_n = self._controls.last_frame
+		self._preview_timer.start()
+
+	def on_start_clicked(self, checked=False):
+		# ROI is chosen: fit the canvas to it (ROI sliders are locked until Reset)
+		if not checked:
+			return
+		c = self._controls
+		self._fitted = True
+		for sl in (c.ROIxmin_sl, c.ROIxmax_sl, c.ROIymin_sl, c.ROIymax_sl):
+			sl.setEnabled(False)
+		self._canvas_wrapper.fit_to_roi(c.ROIxmin, c.ROIxmax, c.ROIymin, c.ROIymax)
+
+	def reset_all(self, *args):
+		# stop tracking (if running), then go back to the initial state: full ROI, full image
+		self._controls.start_radio.setChecked(False)
+		self._finish_reset()
+
+	def _finish_reset(self):
+		if self.tracking_running: # wait for the tracking thread to leave its loop
+			QtCore.QTimer.singleShot(50, self._finish_reset)
+			return
+		c = self._controls
+		c.ROIxmin, c.ROIymin, c.ROIxmax, c.ROIymax = 0, 0, width, height
+		c.set_labels() # moves the ROI sliders
+		for sl in (c.ROIxmin_sl, c.ROIxmax_sl, c.ROIymin_sl, c.ROIymax_sl):
+			sl.setEnabled(True)
+		self._fitted = False
+		self._canvas_wrapper.reset_view()
+		self.refresh_view() # ROI lines + first frame to track
+
+	def refresh_view(self, *args):
+		# after load / default parameters: update ROI lines and show the first frame to track
+		self.update_roi_lines()
+		self._preview_n = self._controls.first_frame
+		self.preview_frame()
 
 	def _connect_controls(self):
 		print("connecting")
@@ -687,6 +1002,20 @@ class MyMainWindow(QtWidgets.QMainWindow):
 		self._controls.ROIxmax_sl.valueChanged.connect(self._controls.set_ROIxmax)
 		self._controls.ROIymin_sl.valueChanged.connect(self._controls.set_ROIymin)
 		self._controls.ROIymax_sl.valueChanged.connect(self._controls.set_ROIymax)
+		# added after the setters above, so lines are drawn with the updated values
+		for sl in (self._controls.ROIxmin_sl,self._controls.ROIxmax_sl,self._controls.ROIymin_sl,self._controls.ROIymax_sl):
+			sl.valueChanged.connect(self.update_roi_lines)
+		self._controls.first_frame_sl.valueChanged.connect(self._controls.set_first_frame)
+		self._controls.last_frame_sl.valueChanged.connect(self._controls.set_last_frame)
+		self._controls.skip_frames_sl.valueChanged.connect(self._controls.set_skip_frames)
+		self._controls.resolution_sb.valueChanged.connect(self._controls.set_resolution)
+		self._controls.fps_sb.valueChanged.connect(self._controls.set_fps)
+		self._controls.first_frame_sl.valueChanged.connect(self.on_first_frame_changed)
+		self._controls.last_frame_sl.valueChanged.connect(self.on_last_frame_changed)
+		self._controls.default_bt.clicked.connect(self.refresh_view)
+		self._controls.start_radio.clicked.connect(self.on_start_clicked)
+		self._controls.reset_bt.clicked.connect(self.reset_all)
+		self._controls.load_bt.clicked.connect(self.refresh_view)
 		
 		self._controls.BGspeed_sl.valueChanged.connect(self._controls.set_BGspeed)
 		self._controls.noise_size_sl.valueChanged.connect(self._controls.set_noise_size)
@@ -704,6 +1033,8 @@ class MyMainWindow(QtWidgets.QMainWindow):
 		self._controls.plot_image_chooser.currentTextChanged.connect(self._controls.set_plot_image)
 		self._controls.plot_data_chooser.currentTextChanged.connect(self._controls.set_plot_data)
 		self._controls.peak_conv_chooser.currentTextChanged.connect(self._controls.set_peak_conv)
+		self._controls.peak_subpix_chooser.currentTextChanged.connect(self._controls.set_peak_subpix)
+		self._controls.noise_radio.clicked.connect(self._controls.set_noise)
 		
 		self._controls.peak_th_auto_radio.clicked.connect(self._controls.set_peak_th_auto)
 		self._controls.BG_radio.clicked.connect(self._controls.set_BG)
@@ -746,28 +1077,52 @@ class tractrac(QtCore.QObject):
 
 
 	def run(self):
-		# Rewind video
-		
-		# Rewind video
-		if (imutils.is_cv2()) & (not flag_im):
-			cap.set(cv2.cv.CAP_PROP_POS_FRAMES,0);
-		elif (imutils.is_cv3()) & (not flag_im):
-			cap.set(cv2.CAP_PROP_POS_FRAMES,0);
-		else:
-			cap.set(cv2.CAP_PROP_POS_FRAMES,0);
-			
-		
-		Pts=[]
-		dt=DTFRAMES
+		self._myMainWindow.tracking_running = True
+		try:
+			self._run()
+		finally:
+			self._myMainWindow.tracking_running = False
+
+	def _run(self):
 		# Create dictionary of parameters
 		th=self.self2dict()
+
+		# Frame range to track (the whole video for a webcam)
+		if flag_web:
+			first,last=0,nFrames-1
+		else:
+			first=int(th[0]['first_frame'])
+			last=int(th[0]['last_frame'])
+			first=max(0,min(first,nFrames-3))
+			last=min(max(last,first+2),nFrames-1)
+		nF=last-first+1 # number of frames in the range
+		# Skip frames: only every step-th frame is used (keep at least 3 frames)
+		step=1 if flag_web else int(max(1,min(int(th[0]['skip_frames'])+1,(nF-1)//2)))
+		idx=np.arange(0,nF,step) # frame positions (relative to first) that are tracked
+		nS=len(idx) # number of tracked frames
+		if step>1: print('Using 1 frame every {:d} ({:d} frames tracked)'.format(step,nS))
+		print('Tracking frames {:d} to {:d}'.format(first,last))
+
+		# Rewind video to first frame
+		if (imutils.is_cv2()) & (not flag_im):
+			cap.set(cv2.cv.CAP_PROP_POS_FRAMES,first);
+		elif (imutils.is_cv3()) & (not flag_im):
+			cap.set(cv2.CAP_PROP_POS_FRAMES,first);
+		else:
+			cap.set(cv2.CAP_PROP_POS_FRAMES,first);
+
+		Pts=[]
+		if flag_web:
+			dt=DTFRAMES[first:first+nF-1]
+		else: # time between tracked frames = sum of the time steps of the skipped frames
+			dt=np.diff(np.concatenate(([0.],np.cumsum(DTFRAMES)))[first+idx])
 		
 		
 		# Read 2 first frames and initialize
 		if flag_web:
 			time0=time.time()
 	
-		I0 = cv2.imread(flist[0],2) if flag_im else cap.read()[1];
+		I0 = cv2.imread(flist[first],2) if flag_im else cap.read()[1];
 		I0=imProj(I0,proj)
 		I0f=imProc(I0,th)
 		
@@ -777,7 +1132,9 @@ class tractrac(QtCore.QObject):
 			dt[0]=time1-time0
 			time0=time1
 	
-		I1 = cv2.imread(flist[1],2) if flag_im else cap.read()[1];
+		if (not flag_im) and (step>1):
+			cap.set(cv2.CAP_PROP_POS_FRAMES,first+step)
+		I1 = cv2.imread(flist[first+step],2) if flag_im else cap.read()[1];
 		I1=imProj(I1,proj)
 		I1f=imProc(I1,th)
 		
@@ -796,21 +1153,23 @@ class tractrac(QtCore.QObject):
 		#Initialize Background
 		B=np.zeros((h,w),dtype=np.float32)
 		if (th[0]['BG']==1)&(flag_web==0):
-				nbgstart=np.minimum(100,nFrames)
+				nbgstart=np.minimum(100,nF)
 				print('Initiating Background image over the firsts {:d} frames...'.format(nbgstart))
+				if not flag_im:
+					cap.set(cv2.CAP_PROP_POS_FRAMES,first)
 				for i in range(nbgstart):
-					I = cv2.imread(flist[i],2) if flag_im else cap.read()[1];
+					I = cv2.imread(flist[first+i],2) if flag_im else cap.read()[1];
 					I=imProj(I,proj)
 					I=imProc(I,th)
 					B=B+I/nbgstart
 			
 			# Rewind video
 				if (imutils.is_cv2()) & (not flag_im):
-					cap.set(cv2.cv.CAP_PROP_POS_FRAMES,0);
+					cap.set(cv2.cv.CAP_PROP_POS_FRAMES,first);
 					cap.read()
 					cap.read()
 				elif (imutils.is_cv3()) & (not flag_im):
-					cap.set(cv2.CAP_PROP_POS_FRAMES,0);
+					cap.set(cv2.CAP_PROP_POS_FRAMES,first);
 					cap.read()
 					cap.read()
 						
@@ -889,19 +1248,21 @@ class tractrac(QtCore.QObject):
 			Av_U=np.zeros(F0f.shape)
 			Av_V=np.zeros(F0f.shape)
 			Av_N=np.zeros(F0f.shape)
+			Av_U_t=[] #: temporal serie
 	
 	#====================Top Down Approach=========================================
-		N=np.arange(nFrames)
+		N=np.arange(nS)
 		if ~flag_web:
 			DT=dt
 			for k in range(int(th[0]['vid_loop'])):
 				if np.mod(k,2)==0:
-					N=np.hstack((N,np.arange(nFrames-2,-1,-1))) # Vector of consecutive frames to read
+					N=np.hstack((N,np.arange(nS-2,-1,-1))) # Vector of consecutive frames to read
 					DT=np.hstack((DT,-dt[::-1])) # Vector of consecutive times
 				else:
-					N=np.hstack((N,np.arange(1,nFrames))) # Vector of consecutive frames to read
+					N=np.hstack((N,np.arange(1,nS))) # Vector of consecutive frames to read
 					DT=np.hstack((DT,dt[::1])) # Vector of consecutive times
 			dt=DT
+		N=first+idx[N] # absolute frame numbers
 	#==============================================================================
 		# MAIN LOOP OVER VIDEO FRAMES  #################################################
 		#nFrames=5
@@ -1019,13 +1380,16 @@ class tractrac(QtCore.QObject):
 					# Evolution of threshold
 					errU_th=(th[0]['filter_time']*errU_th+th[0]['filter_std']*np.std(errU))/(th[0]['filter_time']+1.)
 				else:
-					i_all,ID,errU,ISgood=[[] for j in range(4)]
+					i_all=[]
+					ID=np.array([])
+					errU=np.array([])
+					ISgood=np.array([],dtype=bool)
 					X0,X1,X2,um,A=[np.array([]).reshape(-1,2) for j in range(5)]
 					errU_th=2 # Reinitialize threshold
 				# Filter Outliers if necessary
 				if th[0]['filter']==1:
-					idgood=np.where(ISgood==1)[0]
-					idbad=np.where(ISgood==0)[0]
+					idgood=np.where(np.asarray(ISgood)==1)[0]
+					idbad=np.where(np.asarray(ISgood)==0)[0]
 				elif len(X1)>0:
 					idgood=np.arange(0,len(X1[:,1]))
 					idbad=[];
@@ -1065,21 +1429,24 @@ class tractrac(QtCore.QObject):
 				ID0[i_all]=ID
 			
 			# If last loop, reset ID to 0
-			if (i==len(N)-nFrames) & ~(flag_web):
+			if (i==len(N)-nS) & ~(flag_web):
 				ID0[i_all]=np.arange(int(sum(i_all)))
 				id_traj=sum(i_all)
 				A=A+np.nan
 				
 			# Save Frame ID Position Speed Acceleration
-			if (th[0]['output']>1) & (i>=len(N)-nFrames+2) :
-				newPts=np.vstack(((np.zeros(len(idgood))+N[i]-np.sign(dt[i-1])).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T,A[idgood,:].T, Umotion[idgood,:].T,errU[idgood].T)).T
+			if (th[0]['output']>1) & (i>=len(N)-nS+2) :
+				newPts=np.vstack(((np.zeros(len(idgood))+N[i-1]).T,ID[idgood].T, X1[idgood,:].T, um[idgood,:].T,A[idgood,:].T, Umotion[idgood,:].T,errU[idgood].T)).T
 				Pts.append(newPts) # We use list for dynamic resizing of arrays
 	
-			if th[0]['output']==1 & (i>=len(N)-nFrames+2) :
+			if (th[0]['output']==1) & (i>=len(N)-nS+2) :
 				xi=np.uint16(X1[idgood,:])
 				Av_U[xi[:,1],xi[:,0]]=Av_U[xi[:,1],xi[:,0]]+um[idgood,0]
 				Av_V[xi[:,1],xi[:,0]]=Av_V[xi[:,1],xi[:,0]]+um[idgood,1]
 				Av_N[xi[:,1],xi[:,0]]=Av_N[xi[:,1],xi[:,0]]+1
+				# temporal averages :
+				um_norm = np.nansum(um[idgood,:]**2,axis=1)**0.5
+				Av_U_t.append([i,len(idgood),np.nanmean(um_norm),np.nanstd(um_norm)])
 				
 				
 		# Plotting
@@ -1155,7 +1522,7 @@ class tractrac(QtCore.QObject):
 # 					if len(X1)>0: q=[Im,X1[idgood,:],vel,col,N[i],np.mean(errU[idgood]),th,F2f,plot_time_stat,Cmin,Cmax,alpha,not(i==len(N)-1)]
 # 					if len(X1)==0: q=[Im,[],vel,col,N[i],np.nan,th,F2f,plot_time_stat,Cmin,Cmax,alpha,not(i==len(N)-1)]
 
-			data_dict = { "image": Im ,"vel": vel, "color":col}
+			data_dict = { "image": Im ,"vel": vel, "color":col, "roi": (th[0]['ROIxmin'],th[0]['ROIymin'])}
 			self.new_data.emit(data_dict)
 
 			# Update Background
@@ -1245,21 +1612,20 @@ class tractrac(QtCore.QObject):
 			else:
 				output_filename=path+'/TracTrac/' + name[:-4]
 			Av_N[Av_N==0]=np.nan
-			Ui=Av_U/Av_N
-			cv2.imwrite(output_filename+'_Ux_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
-															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
-															
-			Ui=Av_V/Av_N
-			cv2.imwrite(output_filename+'_Uy_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
-															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
-															
-			Ui=np.sqrt(Av_U**2.+Av_V**2.)/Av_N
-			cv2.imwrite(output_filename+'_Umag_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
-															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
-			Ui=Av_N
-			cv2.imwrite(output_filename+'_N_[{:1.3e},{:1.3e}].tif'.format(np.nanmin(Ui),np.nanmax(Ui)),
-															np.float32((Ui-np.nanmin(Ui))/(np.nanmax(Ui)-np.nanmin(Ui))))
-
+			# Average maps: 16-bit tiff with the ImageJ calibration (min/max -> real values, unit) in the metadata
+			# Velocities (px/frame) are scaled with the resolution (length/px) and the frame rate (frames/s).
+			# With a frame-time file, velocities are already per time unit: fps is not used.
+			res=float(th[0]['resolution'])
+			fps=float(th[0]['fps']) if tfile=='' else 1.0
+			scale=res*fps
+			vunit=('px' if res==1 else 'units')+'/'+('time unit' if tfile!='' else ('s' if fps!=1 else 'frame'))
+			save_calibrated_tiff(output_filename+'_Ux.tif',scale*Av_U/Av_N,vunit)
+			save_calibrated_tiff(output_filename+'_Uy.tif',scale*Av_V/Av_N,vunit)
+			save_calibrated_tiff(output_filename+'_Umag.tif',scale*np.sqrt(Av_U**2.+Av_V**2.)/Av_N,vunit)
+			save_calibrated_tiff(output_filename+'_N.tif',Av_N,'counts')
+            # Save temporal series
+			Av_U_t=np.array(Av_U_t)
+			np.savetxt(output_filename+'_time_series.dat',Av_U_t,header='frame, nb of part, mean velocity, std velocity')
 			if INFO:
 				print('Averages saved as tiff files!')
 		#	if OUTPUT_PP:
